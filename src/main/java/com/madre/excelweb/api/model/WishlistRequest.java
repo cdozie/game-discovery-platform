@@ -1,0 +1,10 @@
+package com.madre.excelweb.api.model;
+
+import lombok.Data;
+
+@Data
+public class WishlistRequest {
+    private Long gameId;
+    private Double rating;
+    private String status;
+}

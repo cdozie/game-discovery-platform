@@ -1,0 +1,70 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.1.1'
+    id 'io.spring.dependency-management' version '1.1.0'
+}
+
+group = 'com.madre'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    sourceCompatibility = '19'
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+
+    implementation 'org.springframework.boot:spring-boot-starter-graphql'
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    developmentOnly("org.springframework.boot:spring-boot-devtools")
+
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.security:spring-security-test'
+
+    implementation 'io.jsonwebtoken:jjwt-impl:0.11.5'
+    implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+    implementation 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+
+    implementation 'org.postgresql:postgresql:42.2.27'
+
+//    implementation 'org.springframework.boot:spring-boot-starter-mail:2.6.3'
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+
+    // REDIS
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis:latest.release'
+    implementation 'org.redisson:redisson:latest.release'
+
+    implementation 'org.springframework:spring-webflux:6.0.11'
+    implementation 'org.springframework.retry:spring-retry:latest.release'
+
+    //Curator Framework
+    implementation 'org.apache.curator:curator-framework:latest.release'
+    implementation 'org.apache.curator:curator-recipes:latest.release'
+
+    testImplementation 'org.springframework:spring-webflux'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.graphql:spring-graphql-test'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+
+
+}
+
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
