@@ -1,6 +1,8 @@
 package com.madre.excelweb.security.service;
 
+import com.madre.excelweb.jpa.entity.AppUser;
 import com.madre.excelweb.jpa.repositories.UserRepository;
+import com.madre.excelweb.security.type.FullUserInfo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -24,9 +26,12 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     }
 
     @Transactional
-    public UserDetails loadUserById(Long id) {
-        return userRepository.getUserById(id)
-                .map(UserDetailsImpl::build)
+    public FullUserInfo loadUserWithDetailsById(Long id) {
+        AppUser appUser = userRepository.getUserById(id)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        UserDetails userDetails = UserDetailsImpl.build(appUser);
+
+        return new FullUserInfo(appUser, userDetails);
     }
 }

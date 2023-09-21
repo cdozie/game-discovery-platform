@@ -76,44 +76,46 @@ function SignUpForm() {
                             Sign Up:
                         </Typography>
 
-                        <FormFieldInput label={'Enter Username'}
-                                        type={'text'}
-                                        value={username}
-                                        onChange={handleUsernameChange}
-                                        placeholder={''}
-                                        autoComplete={true}
-                        />
+                        <form onSubmit={handleSignUpSubmit}>
+                            <FormFieldInput label={'Enter Username'}
+                                            type={'text'}
+                                            value={username}
+                                            onChange={handleUsernameChange}
+                                            placeholder={''}
+                                            autoComplete={true}
+                            />
 
-                        <FormFieldInput label={'Enter Email'}
-                                        type={'email'}
-                                        value={email}
-                                        onChange={handleEmailChange}
-                                        placeholder={''}
-                                        autoComplete={true}
-                        />
+                            <FormFieldInput label={'Enter Email'}
+                                            type={'email'}
+                                            value={email}
+                                            onChange={handleEmailChange}
+                                            placeholder={''}
+                                            autoComplete={true}
+                            />
 
-                        <PasswordField
-                            label="Enter Password"
-                            value={password}
-                            onChange={handlePasswordChange}
-                            placeholder={''}
-                        />
+                            <PasswordField
+                                label="Enter Password"
+                                value={password}
+                                onChange={handlePasswordChange}
+                                placeholder={''}
+                            />
 
-                        {formMessage && (
-                            <Alert severity={formMessageType === 'success' ? 'success' : 'error'}
-                                   sx={{marginTop: '1em', marginBottom: '1em'}}>
-                                {formMessage}
-                            </Alert>
-                        )
-                        }
+                            {formMessage && (
+                                <Alert severity={formMessageType === 'success' ? 'success' : 'error'}
+                                       sx={{marginTop: '1em', marginBottom: '1em'}}>
+                                    {formMessage}
+                                </Alert>
+                            )
+                            }
 
-                        <Button variant="contained" color="primary" onClick={handleSignUpSubmit}
-                                sx={{marginTop: '1em', marginBottom: '1em', alignSelf: 'flex-start'}}>
-                            Sign Up
-                        </Button>
-                        <Typography variant="body2">
-                            Have an account? Login <Link to="/login">here</Link>.
-                        </Typography>
+                            <Button variant="contained" color="primary" type="submit"
+                                    sx={{marginTop: '1em', marginBottom: '1em', alignSelf: 'flex-start'}}>
+                                Sign Up
+                            </Button>
+                            <Typography variant="body2">
+                                Have an account? Login <Link to="/login">here</Link>.
+                            </Typography>
+                        </form>
                     </Box>
                 </Container>
             </div>

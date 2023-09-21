@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import Snackbar from '@mui/material/Snackbar';
 import MuiAlert from '@mui/material/Alert';
 
@@ -21,7 +21,7 @@ export enum Severity {
 
 const PopupMessage: React.FC<MessageProps> = ({message, severity = Severity.SUCCESS}: MessageProps) => {
     const [open, setOpen] = React.useState<boolean>(!!message);
-
+    const [currentMessage, setCurrentMessage] = React.useState<string | null | undefined>(null);
     const handleClose = (event: React.SyntheticEvent | Event, reason?: string) => {
         if (reason === 'clickaway') {
             return;
@@ -29,13 +29,14 @@ const PopupMessage: React.FC<MessageProps> = ({message, severity = Severity.SUCC
         setOpen(false);
     };
 
-    // useEffect(() => {
-    //     setOpen(!!message);
-    // }, [message]);
+    useEffect(() => {
+        setOpen(!!message);
+    }, [message]);
+
     return (
         <Snackbar
             open={open}
-            autoHideDuration={6000}
+            autoHideDuration={4000}
             onClose={handleClose}
             // TransitionComponent={SlideTransition}
             anchorOrigin={{vertical: 'top', horizontal: 'center'}}

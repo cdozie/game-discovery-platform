@@ -25,7 +25,7 @@ spring:
             enable: true
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
@@ -34,6 +34,11 @@ spring:
     redis:
       host: localhost
       port: 6379
+      migration: 60000
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: 1
+    baseline-description: Initial Schema
 web:
   app:
     jwt-secret-key: ${JWT_SECRET_KEY}
@@ -44,4 +49,3 @@ web:
       node-id: 234
   frontend:
     domain: http://localhost:3000
-

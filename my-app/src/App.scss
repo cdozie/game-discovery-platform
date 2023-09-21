@@ -6,6 +6,7 @@ $font-family-monospace: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemF
 $font-family-sans-serif: Arial, Helvetica, sans-serif;
 $root-font-size: 100%;
 $default-font-weight: 800;
+$generic-box-shadow: 0 0 10px 10px rgba(255, 255, 255, 0.68);
 
 :root {
   font: $font-family-monospace;
@@ -67,7 +68,7 @@ h1, h2, h3, h4, h5, h6 {
 .centerCard {
   background-color: white;
   border-radius: 1em;
-  box-shadow: 0 0 10px 10px rgba(255, 255, 255, 0.68);
+  box-shadow: $generic-box-shadow;
   padding: 3em;
   display: flex;
   justify-content: center;
@@ -75,6 +76,16 @@ h1, h2, h3, h4, h5, h6 {
   flex-direction: column;
   width: 40%;
   margin: auto auto auto;
+}
+
+.genericBoxShadow {
+  box-shadow: $generic-box-shadow;
+}
+
+.quickForm {
+  @extend .centerCard; // inherit styles from .centerCard
+  width: 50%; // override width
+  padding: 0em; // override padding
 }
 
 .cardTitle {
@@ -90,9 +101,56 @@ h1, h2, h3, h4, h5, h6 {
 
 }
 
-.gameCards {
-  box-shadow: 0 0 10px 10px rgba(255, 255, 255, 0.68);
+.iconsContainer {
+  display: inline-flex; // use inline-flex to make the container inline but also able to use flex properties
+  flex-direction: column; // stack the icons vertically
+  row-gap: 0;
+  position: absolute;
+  top: 10px;
+  right: 10px;
 
+  .showOnHover, .quickActionIcon {
+    transition: opacity 0.8s ease, transform 0.8s ease, margin-top 0.5s ease-in-out;
+    opacity: 0;
+    background-color: transparent;
+  }
+
+  .quickActionIcon {
+    position: absolute;
+    z-index: -100;
+    margin-top: 0;
+  }
+
+  &:hover {
+    .showOnHover, .quickActionIcon {
+      position: static;
+      opacity: 1;
+      transform: scale(1.2);
+      background-color: rgba(0, 0, 0, .8);
+      top: auto;
+      right: auto;
+      z-index: 10;
+
+    }
+
+    .quickActionIcon {
+      margin-top: .5em;
+    }
+  }
+
+}
+
+.gameCards {
+  &:hover {
+    box-shadow: 0 0 10px 10px rgba(255, 255, 255, 0.68);
+
+    .showOnHover {
+      opacity: 1;
+      background-color: rgba(0, 0, 0, .9);
+
+    }
+
+  }
 }
 
 

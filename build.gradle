@@ -54,12 +54,15 @@ dependencies {
     //Curator Framework
     implementation 'org.apache.curator:curator-framework:latest.release'
     implementation 'org.apache.curator:curator-recipes:latest.release'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:latest.release'
 
     testImplementation 'org.springframework:spring-webflux'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.graphql:spring-graphql-test'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+
+    implementation 'org.flywaydb:flyway-core'
 
 
 }

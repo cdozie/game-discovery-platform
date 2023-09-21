@@ -85,7 +85,9 @@ public class PsnGameSyncService {
                             game.setCreated(OffsetDateTime.now(ZoneOffset.UTC));
                             game.setLastModified(OffsetDateTime.now(ZoneOffset.UTC));
 
+
                             gameRepository.save(game);
+
 
                             log.info("Successfully saved game: {}", game.getName());
                         }
@@ -93,6 +95,16 @@ public class PsnGameSyncService {
                 );
 
 
+    }
+
+    private GameData initializeStats(final GameData game) {
+        game.setInteractions(0L);
+        game.setWishlistTotal(0L);
+        game.setComments(0L);
+        game.setPosts(0L);
+        game.setAverageRating(0.0);
+
+        return game;
     }
 
 

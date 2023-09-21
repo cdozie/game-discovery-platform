@@ -10,9 +10,6 @@ import java.util.Optional;
 @Table(name = "wishlist")
 public interface WishlistRepository extends JpaRepository<Wishlist, Long> {
 
-//    @Query(value = "SELECT * FROM wishlist WHERE  = :userid AND game_id = :gameid LIMIT 1", nativeQuery = true)
-//    Optional<Wishlist> findByUserIdAndGameId(@Param("userid") Long userid, @Param("gameid") Long gameid);
-
     Optional<Wishlist> findByUserinfoIdAndGameinfoId(Long userId, Long gameId);
 
     List<Wishlist> findByUserinfoId(Long userId);

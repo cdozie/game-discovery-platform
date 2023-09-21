@@ -13,6 +13,7 @@ import ResponsiveAppBar from "./MainComponents/ResponsiveAppBar";
 import overrideTheme from "./themes";
 import {ThemeProvider} from "@mui/material/styles";
 import GameList from "./MainComponents/UserList";
+import {LoadingProvider} from "./GeneralComponents/LoadingContext";
 
 const root = ReactDOM.createRoot(
     document.getElementById('root') as HTMLElement
@@ -27,34 +28,34 @@ const AuthContext = createContext({
     }
 });
 
-function AuthProvider({children}: { children: React.ReactNode }) {
+// function LoginRoute() {
+//     const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+//
+//     useEffect(() => {
+//         axios.get('/api/auth/user/authentication-status')
+//             .then(response => {
+//                 setIsAuthenticated(response.data.isAuthenticated);
+//             }).catch(error => {
+//             setIsAuthenticated(false);
+//         });
+//     }, []);
+//
+//     if (isAuthenticated === null) {
+//         return <Navigate to="/" replace/>;
+//     }
+//
+//     console.log(isAuthenticated)
+//     if (isAuthenticated) {
+//         return <Navigate to="/" replace/>;
+//     }
+//     return <LoginForm/>;
+// }
+
+function AuthenticatedInaccessible({children}: { children: React.ReactNode }): React.ReactElement | null {
     const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
     useEffect(() => {
-        axios.get('/api/auth/userAuthenticationStatus')
-            .then(response => {
-                setIsAuthenticated(response.data.isAuthenticated);
-            }).catch(error => {
-            setIsAuthenticated(false);
-        });
-    }, []);
-
-    if (isAuthenticated === null) {
-        return null;  // Render nothing until we know the auth status
-    }
-
-    return (
-        <AuthContext.Provider value={{isAuthenticated, setIsAuthenticated}}>
-            {children}
-        </AuthContext.Provider>
-    );
-}
-
-function LoginRoute() {
-    const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-
-    useEffect(() => {
-        axios.get('/api/auth/userAuthenticationStatus')
+        axios.get('/api/auth/user/authentication-status')
             .then(response => {
                 setIsAuthenticated(response.data.isAuthenticated);
             }).catch(error => {
@@ -66,11 +67,10 @@ function LoginRoute() {
         return null;
     }
 
-    console.log(isAuthenticated)
     if (isAuthenticated) {
         return <Navigate to="/" replace/>;
     }
-    return <LoginForm/>;
+    return <>{children}</>
 }
 
 function Layout({children}: { children: React.ReactNode }) {
@@ -80,8 +80,11 @@ function Layout({children}: { children: React.ReactNode }) {
                 <div className="MainApp">
                     <ThemeProvider theme={overrideTheme}>
 
-                        <ResponsiveAppBar/>
-                        {children}
+                        <LoadingProvider>
+                            <ResponsiveAppBar/>
+                            {children}
+                        </LoadingProvider>
+
                     </ThemeProvider>
                 </div>
             </main>
@@ -95,7 +98,9 @@ function LayoutNoAppBar({children}: { children: React.ReactNode }) {
             <main>
                 <div className="MainApp">
                     <ThemeProvider theme={overrideTheme}>
-                        {children}
+                        <LoadingProvider>
+                            {children}
+                        </LoadingProvider>
                     </ThemeProvider>
                 </div>
             </main>
@@ -107,7 +112,7 @@ function ProtectedElement({children}: { children: React.ReactNode }): React.Reac
     const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
     useEffect(() => {
-        axios.get('/api/auth/userAuthenticationStatus')
+        axios.get('/api/auth/user/authentication-status')
             .then(response => {
                 setIsAuthenticated(response.data.isAuthenticated);
             }).catch(error => {
@@ -122,21 +127,31 @@ function ProtectedElement({children}: { children: React.ReactNode }): React.Reac
     return isAuthenticated ? <>{children}</> : <Navigate to="/login"/>;
 }
 
+
 root.render(
-    <React.StrictMode>
-        <BrowserRouter basename='/api'>
-            <Routes>
-                <Route path="/login" element={<LayoutNoAppBar><LoginRoute/></LayoutNoAppBar>}/>
-                <Route path="/register" element={<SignUpForm/>}/>
-                <Route path="/" element={<Layout><ProtectedElement> <HomePage/> </ProtectedElement></Layout>}/>
-                <Route path="/games/:gameId"
-                       element={<Layout><ProtectedElement> <GameMainPage/> </ProtectedElement></Layout>}/>
-                <Route path="/mylist" element={<Layout><ProtectedElement> <GameList/> </ProtectedElement></Layout>}/>
-                <Route path="*" element={<Layout><ProtectedElement> <HomePage/> </ProtectedElement></Layout>}/>
-                {/* Add any other routes below as PrivateRoute */}
-            </Routes>
-        </BrowserRouter>
-    </React.StrictMode>
+    // <React.StrictMode>
+    <BrowserRouter basename='/api'>
+        <Routes>
+            <Route path="/login" element={
+                <LayoutNoAppBar>
+                    <AuthenticatedInaccessible>
+                        <LoginForm/>
+                    </AuthenticatedInaccessible>
+                </LayoutNoAppBar>}/>
+            <Route path="/register" element={
+                <AuthenticatedInaccessible>
+                    <SignUpForm/>
+                </AuthenticatedInaccessible>
+            }/>
+            <Route path="/" element={<Layout><ProtectedElement> <HomePage/> </ProtectedElement></Layout>}/>
+            <Route path="/games/:gameId"
+                   element={<Layout><ProtectedElement> <GameMainPage/> </ProtectedElement></Layout>}/>
+            <Route path="/mylist" element={<Layout><ProtectedElement> <GameList/> </ProtectedElement></Layout>}/>
+            <Route path="*" element={<Layout><ProtectedElement> <HomePage/> </ProtectedElement></Layout>}/>
+
+            {/* Add any other routes below as PrivateRoute */}
+        </Routes>
+    </BrowserRouter>
 );
 
 

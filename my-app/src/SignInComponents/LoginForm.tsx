@@ -63,38 +63,38 @@ function LoginForm() {
                                 sx={{marginBottom: '1em'}}>
                         Log In:
                     </Typography>
+                    <form onSubmit={handleLogInSubmit}>
+                        <FormFieldInput label={'Enter Username/Email'}
+                                        type={'text'}
+                                        value={username}
+                                        onChange={handleUsernameChange}
+                                        placeholder={''}
+                                        autoComplete={true}
+                        />
 
-                    <FormFieldInput label={'Enter Username/Email'}
-                                    type={'text'}
-                                    value={username}
-                                    onChange={handleUsernameChange}
-                                    placeholder={''}
-                                    autoComplete={true}
-                    />
+                        <PasswordField
+                            label="Enter Password"
+                            value={password}
+                            onChange={handlePasswordChange}
+                            placeholder={''}
+                        />
 
-                    <PasswordField
-                        label="Enter Password"
-                        value={password}
-                        onChange={handlePasswordChange}
-                        placeholder={''}
-                    />
+                        {formMessage && (
+                            <Alert severity={formMessageType === 'success' ? 'success' : 'error'}
+                                   sx={{marginBottom: '1em'}}>
+                                {/*<AlertTitle>{backendResponseType.charAt(0).toUpperCase() + backendResponseType.slice(1)}</AlertTitle>*/}
+                                <strong>{formMessage}</strong>
+                            </Alert>
+                        )}
 
-                    {formMessage && (
-
-                        <Alert severity={formMessageType === 'success' ? 'success' : 'error'}
-                               sx={{marginBottom: '1em'}}>
-                            {/*<AlertTitle>{backendResponseType.charAt(0).toUpperCase() + backendResponseType.slice(1)}</AlertTitle>*/}
-                            <strong>{formMessage}</strong>
-                        </Alert>
-                    )}
-                    <Button variant="contained" color="primary" onClick={handleLogInSubmit}
-                            sx={{marginTop: '1em', marginBottom: '1em', alignSelf: 'flex-start'}}>
-                        Login
-                    </Button>
-                    <Typography variant="body2">
-                        Don't have an account? Sign up <Link to="/register">here</Link>.
-                    </Typography>
-
+                        <Button variant="contained" color="primary" type="submit"
+                                sx={{marginTop: '1em', marginBottom: '1em', alignSelf: 'flex-start'}}>
+                            Login
+                        </Button>
+                        <Typography variant="body2">
+                            Don't have an account? Sign up <Link to="/register">here</Link>.
+                        </Typography>
+                    </form>
                 </Box>
             </Container>
         </ThemeProvider>

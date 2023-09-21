@@ -1,27 +1,16 @@
-import React from "react";
-import {
-    AppBar,
-    Avatar,
-    Box,
-    Button,
-    Container,
-    IconButton,
-    Menu,
-    MenuItem,
-    Slide,
-    Toolbar,
-    Tooltip,
-    Typography,
-    useScrollTrigger
-} from "@mui/material";
+import React, {useEffect} from "react";
+import {AppBar, Box, Button, Container, IconButton, Menu, MenuItem, Toolbar, Tooltip, Typography} from "@mui/material";
 import AdbIcon from '@mui/icons-material/Adb';
 import MenuIcon from '@mui/icons-material/Menu';
 import axios from "axios";
 import {useNavigate} from "react-router-dom";
 import PopupMessage from "../GeneralComponents/PopupMessage";
+import {AccountCircle} from "@mui/icons-material";
+import SearchIcon from '@mui/icons-material/Search';
+import QuickSearchPage from "./QuickSearchPage";
 
 
-const pages = ['Home', 'Random Game', 'My List'];
+const pages = ['Home', 'Random Game', 'My List', 'Browse'];
 
 const settings = ['Profile', 'Account', 'Dashboard', 'Logout'];
 
@@ -30,7 +19,7 @@ function ResponsiveAppBar() {
     const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
     const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
     const [errorMessage, setErrorMessage] = React.useState('');
-    // const [gameId, setGameId] = React.useState('' as any);
+    const [searchModalOpen, setSearchModalOpen] = React.useState(false);
 
     const navigate = useNavigate();
 
@@ -62,6 +51,13 @@ function ResponsiveAppBar() {
             );
     }
 
+    const handleOpenSearchModal = () => {
+        setSearchModalOpen(true);
+    }
+    const handleCloseSearchModal = () => {
+        setSearchModalOpen(false);
+    }
+
     const handleRandomGame = () => {
 
         axios.get("/api/auth/games/random-id")
@@ -91,13 +87,14 @@ function ResponsiveAppBar() {
             case 'My List':
                 navigate('/mylist');
                 break;
+            case 'Browse':
+                navigate('/search');
+                break;
             default:
                 break;
-
         }
         handleCloseNavMenu();
     }
-
 
     const handleSetting = (setting: string) => {
         switch (setting) {
@@ -119,19 +116,20 @@ function ResponsiveAppBar() {
         handleCloseUserMenu();
     }
 
+    useEffect(() => {
+        function handleKeyPress(event: KeyboardEvent) {
+            if (event.ctrlKey && event.key === 's') {
+                event.preventDefault();
+                handleOpenSearchModal();
+            }
+        }
 
-    function HideOnScroll(props: { children: React.ReactElement }) {
-        const {children} = props;
-        const trigger = useScrollTrigger();
-        console.log(trigger)
+        window.addEventListener('keydown', handleKeyPress);
 
-
-        return (
-            <Slide appear={false} direction="down" in={!trigger}>
-                {children}
-            </Slide>
-        );
-    }
+        return () => {
+            window.removeEventListener('keydown', handleKeyPress);
+        }
+    }, []);
 
     return (
 
@@ -225,11 +223,14 @@ function ResponsiveAppBar() {
                             </Button>
                         ))}
                     </Box>
-
+                    <IconButton size="large" color="inherit" onClick={handleOpenSearchModal}>
+                        <SearchIcon/>
+                    </IconButton>
                     <Box sx={{flexGrow: 0}}>
                         <Tooltip title="Open settings">
-                            <IconButton onClick={handleOpenUserMenu} sx={{p: 0}}>
-                                <Avatar alt="Remy Sharp" src="/static/images/avatar/2.jpg"/>
+                            <IconButton onClick={handleOpenUserMenu} size="large"
+                                        color="inherit">
+                                <AccountCircle/>
                             </IconButton>
                         </Tooltip>
                         <Menu
@@ -257,6 +258,11 @@ function ResponsiveAppBar() {
                     </Box>
                 </Toolbar>
             </Container>
+            <QuickSearchPage
+                open={searchModalOpen}
+                onClose={handleCloseSearchModal}
+            />
+
         </AppBar>
         // </HideOnScroll>
     )

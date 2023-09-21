@@ -1,4 +1,3 @@
-import React from 'react';
 import {createTheme} from "@mui/material";
 
 const overrideTheme = createTheme({
@@ -29,6 +28,13 @@ const overrideTheme = createTheme({
                 light: '#000000',
                 dark: '#000000',
                 contrastText: '#ffffff',
+            },
+            // make it purple with white contrast
+            secondary: {
+                main: '#ffffff',
+                light: '#ffffff',
+                dark: '#ffffff',
+                contrastText: '#000000',
             }
         }
     }

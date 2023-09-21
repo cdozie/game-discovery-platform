@@ -7,11 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import java.util.Iterator;
-import java.util.List;
-import java.util.Optional;
-import java.util.Spliterator;
-import java.util.Spliterators;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -79,7 +75,7 @@ public class PsnApiReader {
                         .psnId(id)
                         .name(name)
                         .providerName(providerName)
-                        .release_date(release_date)
+                        .releaseDate(release_date)
                         .url(url)
                         .price(price)
                         .imageUrl(imageUrl)

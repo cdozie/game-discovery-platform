@@ -1,8 +1,15 @@
 package com.madre.excelweb.config;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.madre.excelweb.jpa.entity.AppUser;
+import com.madre.excelweb.jpa.entity.EmailVerificationToken;
 import com.madre.excelweb.jpa.repositories.GameRepository;
 import com.madre.excelweb.jpa.repositories.UserRepository;
+import com.madre.excelweb.jpa.repositories.WishlistRepository;
+import com.madre.excelweb.rest.ControllerUtils;
 import com.madre.excelweb.security.jwt.AuthEntryPointJwt;
 import com.madre.excelweb.security.jwt.JwtUtils;
 import com.madre.excelweb.security.service.UserDetailsServiceImpl;
@@ -12,8 +19,12 @@ import com.madre.excelweb.service.RedissonLockClient;
 import com.madre.excelweb.service.api.PsnApiIterator;
 import com.madre.excelweb.service.api.PsnApiReader;
 import com.madre.excelweb.service.api.PsnGameSyncService;
+import com.madre.excelweb.service.redis.GameStatsService;
 import com.madre.excelweb.service.redis.PendingUserService;
+import com.madre.excelweb.service.redis.VerificationTokenService;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -56,6 +67,7 @@ public class WorkerConfiguration {
         return new AuthEntryPointJwt();
     }
 
+
     @Bean
     public RedisTemplate<String, AppUser> redisTemplate(RedisConnectionFactory factory) {
         RedisTemplate<String, AppUser> template = new RedisTemplate<>();
@@ -72,8 +84,34 @@ public class WorkerConfiguration {
     }
 
     @Bean
+    public RedisTemplate<String, EmailVerificationToken> emailVerificationTokenRedisTemplate(RedisConnectionFactory factory) {
+        RedisTemplate<String, EmailVerificationToken> template = new RedisTemplate<>();
+        template.setConnectionFactory(factory);
+
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        Jackson2JsonRedisSerializer<EmailVerificationToken> serializer = new Jackson2JsonRedisSerializer<>(objectMapper, EmailVerificationToken.class);
+
+        template.setValueSerializer(serializer);
+        template.setHashValueSerializer(serializer);
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setHashKeySerializer(new StringRedisSerializer());
+
+        return template;
+
+    }
+
+    @Bean
     public PendingUserService pendingUserService(final RedisTemplate<String, AppUser> redisTemplate) {
         return new PendingUserService(redisTemplate);
+    }
+
+    @Bean
+    public VerificationTokenService verificationTokenService(final RedisTemplate<String, EmailVerificationToken> redisTemplate) {
+        return new VerificationTokenService(redisTemplate);
     }
 
     @Bean(name = "psnWebClient")
@@ -121,5 +159,22 @@ public class WorkerConfiguration {
         return new IdGenerationService();
     }
 
+    @Bean
+    public GameStatsService gameStatsService(final RedissonClient redissonClient,
+                                             final GameRepository gameRepository) {
+        return new GameStatsService(redissonClient, gameRepository);
+    }
 
+    @Bean
+    public ControllerUtils controllerUtils(final JwtUtils jwtUtils,
+                                           final WishlistRepository wishlistRepository,
+                                           final UserRepository userRepository) {
+        return new ControllerUtils(jwtUtils, wishlistRepository, userRepository);
+    }
+
+    @Bean
+    public Jackson2ObjectMapperBuilderCustomizer customizeEnum() {
+        return builder -> builder.featuresToEnable(DeserializationFeature.READ_ENUMS_USING_TO_STRING,
+                SerializationFeature.WRITE_ENUMS_USING_TO_STRING);
+    }
 }

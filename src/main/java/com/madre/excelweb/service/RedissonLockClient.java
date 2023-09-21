@@ -17,7 +17,7 @@ public class RedissonLockClient {
     private static final int DEFAULT_LEASE_TIME = -1;
     private static final String LEASE_TIME = "redis.lock.lease.time";
 
-    
+
     private final RedissonClient redissonClient;
     private final Environment env;
 
