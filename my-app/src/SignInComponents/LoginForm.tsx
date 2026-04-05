@@ -3,11 +3,12 @@ import {Link, useLocation, useNavigate} from 'react-router-dom';
 
 import '../App.scss';
 import {Alert, Box, Button, Container, Typography} from '@mui/material';
-import axios from "axios";
 import {ThemeProvider} from "@mui/material/styles";
 import overrideTheme from "../themes";
 import FormFieldInput from "./FormComponents";
 import PasswordField from "./PasswordField";
+import {getErrorMessage} from "../api/client";
+import {login} from "../api/games";
 
 function LoginForm() {
     const [username, setUsername] = React.useState('');
@@ -30,21 +31,17 @@ function LoginForm() {
         setPassword(e.target.value);
     }
 
-    const handleLogInSubmit = (event: React.FormEvent) => {
+    const handleLogInSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
-        axios.post("/api/auth/login", {
-            username: username,
-            password: password
-        })
-            .then(response => {
-                setFormMessage(response.data.message);
-                setFormMessageType('success');
-                navigate('/')
-            })
-            .catch(error => {
-                setFormMessage(error.response.data.message || error.message);
-                setFormMessageType('error');
-            });
+        try {
+            await login(username, password);
+            setFormMessage('Login successful.');
+            setFormMessageType('success');
+            navigate('/');
+        } catch (error) {
+            setFormMessage(getErrorMessage(error));
+            setFormMessageType('error');
+        }
     }
     // Have it so that it redirects to the home page if the user is already logged in and also have it get any messages from the backend
     React.useEffect(() => {
@@ -69,7 +66,8 @@ function LoginForm() {
                                         value={username}
                                         onChange={handleUsernameChange}
                                         placeholder={''}
-                                        autoComplete={true}
+                                        autoComplete="username"
+                                        name="username"
                         />
 
                         <PasswordField
@@ -77,6 +75,8 @@ function LoginForm() {
                             value={password}
                             onChange={handlePasswordChange}
                             placeholder={''}
+                            autoComplete="current-password"
+                            name="password"
                         />
 
                         {formMessage && (

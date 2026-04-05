@@ -11,27 +11,26 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 import org.springframework.http.ResponseCookie;
 import org.springframework.web.util.WebUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 
 @Slf4j
-
+@Component
 public class JwtUtils {
 
-    private final Key secretKey;
+    @Value("${web.app.jwt-secret-key}")
+    private String secretKeyValue;
     @Value("${web.app.jwt-expiration-ms}")
     private int jwtExpirationMs;
     @Value("${web.app.jwt-refresh-expiration-ms}")
     private String jwtRefreshExpirationMs;
     @Value("${web.app.jwt-cookie-name}")
     private String jwtCookieName;
-
-    public JwtUtils() {
-        this.secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
-    }
 
     public String getJwtFromCookies(HttpServletRequest request) {
         Cookie cookie = WebUtils.getCookie(request, jwtCookieName);
@@ -51,7 +50,7 @@ public class JwtUtils {
     }
 
     private Key key() {
-        return Keys.hmacShaKeyFor(secretKey.getEncoded());
+        return Keys.hmacShaKeyFor(secretKeyValue.getBytes(StandardCharsets.UTF_8));
     }
 
     public String getUsernameFromToken(String token) {

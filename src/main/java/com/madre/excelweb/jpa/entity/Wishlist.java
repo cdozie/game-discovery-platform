@@ -37,6 +37,9 @@ public class Wishlist implements Serializable {
     @Column(name = "rating")
     private Double rating;
 
+    @Column(name = "selected_platform")
+    private String selectedPlatform;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private ListGameStatus status;

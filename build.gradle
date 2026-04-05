@@ -8,7 +8,9 @@ group = 'com.madre'
 version = '0.0.1-SNAPSHOT'
 
 java {
-    sourceCompatibility = '19'
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
 }
 
 configurations {
@@ -22,43 +24,32 @@ repositories {
 }
 
 dependencies {
-
-    implementation 'org.springframework.boot:spring-boot-starter-graphql'
-    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-    compileOnly 'org.projectlombok:lombok'
-    annotationProcessor 'org.projectlombok:lombok'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    compileOnly 'org.projectlombok:lombok:1.18.36'
+    annotationProcessor 'org.projectlombok:lombok:1.18.36'
 
-    developmentOnly("org.springframework.boot:spring-boot-devtools")
+    if ((findProperty("includeDevtools") ?: System.getenv("INCLUDE_DEVTOOLS")) == "true") {
+        developmentOnly("org.springframework.boot:spring-boot-devtools")
+    }
 
     implementation 'org.springframework.boot:spring-boot-starter-security'
-    implementation 'org.springframework.security:spring-security-test'
 
     implementation 'io.jsonwebtoken:jjwt-impl:0.11.5'
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
     implementation 'io.jsonwebtoken:jjwt-jackson:0.11.5'
 
-    implementation 'org.postgresql:postgresql:42.2.27'
+    runtimeOnly 'org.postgresql:postgresql'
 
-//    implementation 'org.springframework.boot:spring-boot-starter-mail:2.6.3'
     implementation 'org.springframework.boot:spring-boot-starter-mail'
 
-    // REDIS
-    implementation 'org.springframework.boot:spring-boot-starter-data-redis:latest.release'
-    implementation 'org.redisson:redisson:latest.release'
-
-    implementation 'org.springframework:spring-webflux:6.0.11'
-    implementation 'org.springframework.retry:spring-retry:latest.release'
-
-    //Curator Framework
-    implementation 'org.apache.curator:curator-framework:latest.release'
-    implementation 'org.apache.curator:curator-recipes:latest.release'
-    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:latest.release'
+    implementation 'org.springframework:spring-webflux'
+    implementation 'org.springframework.retry:spring-retry'
 
     testImplementation 'org.springframework:spring-webflux'
+    testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'org.springframework.graphql:spring-graphql-test'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
 

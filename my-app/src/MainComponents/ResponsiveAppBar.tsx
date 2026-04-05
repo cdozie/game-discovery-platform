@@ -1,271 +1,313 @@
 import React, {useEffect} from "react";
-import {AppBar, Box, Button, Container, IconButton, Menu, MenuItem, Toolbar, Tooltip, Typography} from "@mui/material";
-import AdbIcon from '@mui/icons-material/Adb';
+import {
+    AppBar,
+    Avatar,
+    Box,
+    Button,
+    Container,
+    IconButton,
+    Menu,
+    MenuItem,
+    Toolbar,
+    Tooltip,
+    Typography
+} from "@mui/material";
+import SportsEsportsIcon from '@mui/icons-material/SportsEsports';
 import MenuIcon from '@mui/icons-material/Menu';
-import axios from "axios";
-import {useNavigate} from "react-router-dom";
-import PopupMessage from "../GeneralComponents/PopupMessage";
-import {AccountCircle} from "@mui/icons-material";
 import SearchIcon from '@mui/icons-material/Search';
+import ShuffleIcon from '@mui/icons-material/Shuffle';
+import {AccountCircle} from "@mui/icons-material";
+import {useNavigate} from "react-router-dom";
+import PopupMessage, {Severity} from "../GeneralComponents/PopupMessage";
+import {UserProfile} from "../GeneralComponents/types/UserProfile";
 import QuickSearchPage from "./QuickSearchPage";
+import {getErrorMessage} from "../api/client";
+import {getMyProfile, getRandomGameId, logout} from "../api/games";
 
+const PROFILE_UPDATED_EVENT = 'gamesdb:profile-updated';
+const ADMIN_CACHE_KEY = 'gamesdb:is-admin';
+const PROFILE_CACHE_KEY = 'gamesdb:profile-cache';
 
-const pages = ['Home', 'Random Game', 'My List', 'Browse'];
+const navigationItems = ['Home', 'Search', 'Discover', 'Random Game', 'My List'];
 
-const settings = ['Profile', 'Account', 'Dashboard', 'Logout'];
-
+function isAdminProfile(profile?: UserProfile | null): boolean {
+    return !!profile?.admin || !!profile?.roles?.includes('ADMIN');
+}
 
 function ResponsiveAppBar() {
     const [anchorElNav, setAnchorElNav] = React.useState<null | HTMLElement>(null);
     const [anchorElUser, setAnchorElUser] = React.useState<null | HTMLElement>(null);
-    const [errorMessage, setErrorMessage] = React.useState('');
+    const [message, setMessage] = React.useState('');
+    const [severity, setSeverity] = React.useState(Severity.ERROR);
     const [searchModalOpen, setSearchModalOpen] = React.useState(false);
+    const [profile, setProfile] = React.useState<UserProfile | null>(null);
 
     const navigate = useNavigate();
 
-    const handleOpenNavMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
-        setAnchorElNav(event.currentTarget);
-    }
-
-    const handleOpenUserMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
-        setAnchorElUser(event.currentTarget);
-    }
-
-    const handleCloseNavMenu = () => {
+    const handleNavigation = async (item: string) => {
         setAnchorElNav(null);
+
+        if (item === 'Home') {
+            navigate('/');
+            return;
+        }
+
+        if (item === 'Discover') {
+            navigate('/discover');
+            return;
+        }
+
+        if (item === 'Search') {
+            navigate('/search');
+            return;
+        }
+
+        if (item === 'My List') {
+            navigate('/mylist');
+            return;
+        }
+
+        if (item === 'Random Game') {
+            try {
+                const gameId = await getRandomGameId();
+                navigate(`/games/${gameId}`);
+            } catch (error) {
+                setMessage(getErrorMessage(error));
+                setSeverity(Severity.ERROR);
+            }
+        }
     };
 
-    const handleCloseUserMenu = () => {
+    const handleLogOut = async () => {
+        try {
+            await logout();
+            if (typeof window !== 'undefined') {
+                window.localStorage.removeItem(ADMIN_CACHE_KEY);
+                window.localStorage.removeItem(PROFILE_CACHE_KEY);
+            }
+            navigate('/login');
+        } catch (error) {
+            setMessage(getErrorMessage(error));
+            setSeverity(Severity.ERROR);
+        } finally {
+            setAnchorElUser(null);
+        }
+    };
+
+    const handleSettingsOpen = () => {
         setAnchorElUser(null);
+        navigate('/settings');
     };
 
-    const handleLogOut = () => {
-        axios.post("/api/auth/logout")
-            .then(response => {
-                navigate('/login');
-            })
-            .catch(error => {
-                    setErrorMessage(error.response.data.message || error.message);
+    const handleMyListOpen = () => {
+        setAnchorElUser(null);
+        navigate('/mylist');
+    };
 
-                }
-            );
-    }
+    const handleSuggestGameOpen = () => {
+        setAnchorElUser(null);
+        navigate('/submit-game');
+    };
 
-    const handleOpenSearchModal = () => {
-        setSearchModalOpen(true);
-    }
-    const handleCloseSearchModal = () => {
-        setSearchModalOpen(false);
-    }
-
-    const handleRandomGame = () => {
-
-        axios.get("/api/auth/games/random-id")
-            .then(response => {
-                if (!response || !response.data) {
-                    setErrorMessage("No games found");
-                    return null;
-                } else {
-                    navigate('/games/' + response.data.id);
-                }
-            })
-            .catch(error => {
-                    console.log(error)
-                    setErrorMessage((error.response && error.response.data && error.response.data.message) || error.message);
-                }
-            );
-    }
-    const handleNavigation = (page: string) => {
-        console.log("Navigating to " + page + " page");
-        switch (page) {
-            case 'Home':
-                navigate('/');
-                break;
-            case 'Random Game':
-                handleRandomGame();
-                break;
-            case 'My List':
-                navigate('/mylist');
-                break;
-            case 'Browse':
-                navigate('/search');
-                break;
-            default:
-                break;
-        }
-        handleCloseNavMenu();
-    }
-
-    const handleSetting = (setting: string) => {
-        switch (setting) {
-            case 'Profile':
-                navigate('/profile');
-                break;
-            case 'Account':
-                navigate('/account');
-                break;
-            case 'Dashboard':
-                navigate('/dashboard');
-                break;
-            case 'Logout':
-                handleLogOut();
-                break;
-            default:
-                break;
-        }
-        handleCloseUserMenu();
-    }
+    const handleAdminOpen = () => {
+        setAnchorElUser(null);
+        navigate('/admin');
+    };
 
     useEffect(() => {
         function handleKeyPress(event: KeyboardEvent) {
-            if (event.ctrlKey && event.key === 's') {
+            if (event.ctrlKey && event.key.toLowerCase() === 's') {
                 event.preventDefault();
-                handleOpenSearchModal();
+                setSearchModalOpen(true);
             }
         }
 
-        window.addEventListener('keydown', handleKeyPress);
+        function handleProfileUpdated(event: Event) {
+            const customEvent = event as CustomEvent<UserProfile>;
+            if (customEvent.detail) {
+                setProfile(customEvent.detail);
+                if (typeof window !== 'undefined') {
+                    window.localStorage.setItem(ADMIN_CACHE_KEY, String(isAdminProfile(customEvent.detail)));
+                    window.localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(customEvent.detail));
+                }
+            }
+        }
 
+        if (typeof window !== 'undefined') {
+            const cachedProfile = window.localStorage.getItem(PROFILE_CACHE_KEY);
+            if (cachedProfile) {
+                try {
+                    setProfile(JSON.parse(cachedProfile));
+                } catch (_error) {
+                    window.localStorage.removeItem(PROFILE_CACHE_KEY);
+                }
+            }
+        }
+
+        getMyProfile().then(nextProfile => {
+            setProfile(nextProfile);
+            if (typeof window !== 'undefined') {
+                window.localStorage.setItem(ADMIN_CACHE_KEY, String(isAdminProfile(nextProfile)));
+                window.localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(nextProfile));
+            }
+        }).catch(() => null);
+        window.addEventListener('keydown', handleKeyPress);
+        window.addEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated as EventListener);
         return () => {
             window.removeEventListener('keydown', handleKeyPress);
-        }
+            window.removeEventListener(PROFILE_UPDATED_EVENT, handleProfileUpdated as EventListener);
+        };
     }, []);
 
-    return (
+    const avatarFallback = (profile?.displayName || profile?.username || 'G').slice(0, 1).toUpperCase();
+    const cachedAdmin = typeof window !== 'undefined' && window.localStorage.getItem(ADMIN_CACHE_KEY) === 'true';
+    const isAdmin = isAdminProfile(profile) || cachedAdmin;
 
-        // <HideOnScroll>
-        <AppBar position="fixed">
-            <PopupMessage message={errorMessage}/>
+    return (
+        <AppBar
+            position="fixed"
+            sx={{
+                background: 'linear-gradient(90deg, rgba(51,24,97,0.96), rgba(106,58,177,0.92))',
+                boxShadow: '0 20px 50px rgba(24, 7, 51, 0.35)'
+            }}
+        >
+            <PopupMessage message={message} severity={severity}/>
             <Container maxWidth="xl">
                 <Toolbar disableGutters>
-                    <AdbIcon sx={{display: {xs: 'none', md: 'flex'}, mr: 1}}/>
+                    <SportsEsportsIcon sx={{display: {xs: 'none', md: 'flex'}, mr: 1.5}}/>
                     <Typography
                         variant="h6"
-                        noWrap
-                        component="a"
-                        href="/api"
+                        component="button"
+                        onClick={() => navigate('/')}
                         sx={{
-                            mr: 2,
+                            mr: 3,
                             display: {xs: 'none', md: 'flex'},
-                            fontFamily: 'monospace',
-                            fontWeight: 700,
-                            letterSpacing: '.3rem',
+                            fontFamily: '"Trebuchet MS", "Segoe UI", sans-serif',
+                            fontWeight: 800,
+                            letterSpacing: '0.08em',
                             color: 'inherit',
-                            textDecoration: 'none',
+                            border: 0,
+                            background: 'transparent'
                         }}
                     >
-                        LOGO
+                        Games DB
                     </Typography>
+
                     <Box sx={{flexGrow: 1, display: {xs: 'flex', md: 'none'}}}>
-                        <IconButton
-                            size="large"
-                            aria-label="account of current user"
-                            aria-controls="menu-appbar"
-                            aria-haspopup="true"
-                            onClick={handleOpenNavMenu}
-                            color="inherit"
-                        >
+                        <IconButton size="large" color="inherit" onClick={(event) => setAnchorElNav(event.currentTarget)}>
                             <MenuIcon/>
                         </IconButton>
                         <Menu
-                            id="menu-appbar"
                             anchorEl={anchorElNav}
-                            anchorOrigin={{
-                                vertical: 'bottom',
-                                horizontal: 'left',
-                            }}
-                            keepMounted
-                            transformOrigin={{
-                                vertical: 'top',
-                                horizontal: 'left',
-                            }}
+                            anchorOrigin={{vertical: 'bottom', horizontal: 'left'}}
+                            transformOrigin={{vertical: 'top', horizontal: 'left'}}
                             open={Boolean(anchorElNav)}
-                            onClose={handleCloseNavMenu}
-                            sx={{
-                                display: {xs: 'block', md: 'none'},
-                            }}
+                            onClose={() => setAnchorElNav(null)}
+                            sx={{display: {xs: 'block', md: 'none'}}}
                         >
-                            {pages.map((page) => (
-                                <MenuItem key={page} onClick={() => handleNavigation(page)}>
-                                    <Typography textAlign="center">{page}</Typography>
+                            {navigationItems.map(item => (
+                                <MenuItem key={item} onClick={() => handleNavigation(item)}>
+                                    <Typography textAlign="center">{item}</Typography>
                                 </MenuItem>
                             ))}
                         </Menu>
-
                     </Box>
-                    <AdbIcon sx={{display: {xs: 'flex', md: 'none'}, mr: 1}}/>
+
+                    <SportsEsportsIcon sx={{display: {xs: 'flex', md: 'none'}, mr: 1}}/>
                     <Typography
                         variant="h5"
-                        noWrap
-                        component="a"
-                        href="/"
+                        component="button"
+                        onClick={() => navigate('/')}
                         sx={{
                             mr: 2,
                             flexGrow: 1,
                             display: {xs: 'flex', md: 'none'},
-                            fontFamily: 'monospace',
-                            fontWeight: 700,
-                            letterSpacing: '.3rem',
+                            fontFamily: '"Trebuchet MS", "Segoe UI", sans-serif',
+                            fontWeight: 800,
+                            letterSpacing: '0.05em',
                             color: 'inherit',
-                            textDecoration: 'none',
+                            border: 0,
+                            background: 'transparent'
                         }}
                     >
-                        LOGO
+                        Games DB
                     </Typography>
-                    <Box sx={{flexGrow: 1, display: {xs: 'none', md: 'flex'}}}>
-                        {pages.map((page) => (
+
+                    <Box sx={{flexGrow: 1, display: {xs: 'none', md: 'flex'}, gap: 1}}>
+                        {navigationItems.map(item => (
                             <Button
-                                key={page}
-                                onClick={() => handleNavigation(page)}
-                                sx={{my: 2, color: 'white', display: 'block'}}
+                                key={item}
+                                onClick={() => handleNavigation(item)}
+                                startIcon={item === 'Random Game' ? <ShuffleIcon/> : undefined}
+                                sx={{my: 2, color: 'white', display: 'flex'}}
                             >
-                                {page}
+                                {item}
                             </Button>
                         ))}
                     </Box>
-                    <IconButton size="large" color="inherit" onClick={handleOpenSearchModal}>
-                        <SearchIcon/>
-                    </IconButton>
+
+                    <Tooltip title="Quick search">
+                        <IconButton size="large" color="inherit" onClick={() => setSearchModalOpen(true)}>
+                            <SearchIcon/>
+                        </IconButton>
+                    </Tooltip>
+
                     <Box sx={{flexGrow: 0}}>
-                        <Tooltip title="Open settings">
-                            <IconButton onClick={handleOpenUserMenu} size="large"
-                                        color="inherit">
-                                <AccountCircle/>
+                        <Tooltip title="Account">
+                            <IconButton onClick={(event) => setAnchorElUser(event.currentTarget)} size="large" color="inherit">
+                                {profile ? (
+                                    <Avatar
+                                        src={profile.avatarUrl || undefined}
+                                        sx={{width: 36, height: 36, bgcolor: 'rgba(255,255,255,0.18)', color: 'white'}}
+                                    >
+                                        {avatarFallback}
+                                    </Avatar>
+                                ) : (
+                                    <AccountCircle/>
+                                )}
                             </IconButton>
                         </Tooltip>
                         <Menu
                             sx={{mt: '45px'}}
-                            id="menu-appbar"
                             anchorEl={anchorElUser}
-                            anchorOrigin={{
-                                vertical: 'top',
-                                horizontal: 'right',
-                            }}
-                            keepMounted
-                            transformOrigin={{
-                                vertical: 'top',
-                                horizontal: 'right',
-                            }}
+                            anchorOrigin={{vertical: 'top', horizontal: 'right'}}
+                            transformOrigin={{vertical: 'top', horizontal: 'right'}}
                             open={Boolean(anchorElUser)}
-                            onClose={handleCloseUserMenu}
+                            onClose={() => setAnchorElUser(null)}
                         >
-                            {settings.map((setting) => (
-                                <MenuItem key={setting} onClick={() => handleSetting(setting)}>
-                                    <Typography textAlign="center">{setting}</Typography>
+                            {profile && (
+                                <MenuItem disabled>
+                                    <Box>
+                                        <Typography fontWeight={700}>{profile.displayName || profile.username}</Typography>
+                                        <Typography variant="body2" color="text.secondary">{profile.email}</Typography>
+                                    </Box>
                                 </MenuItem>
-                            ))}
+                            )}
+                            <MenuItem onClick={handleMyListOpen}>
+                                <Typography textAlign="center">My List</Typography>
+                            </MenuItem>
+                            <MenuItem onClick={handleSuggestGameOpen}>
+                                <Typography textAlign="center">Suggest Game</Typography>
+                            </MenuItem>
+                            {isAdmin && (
+                                <MenuItem onClick={handleAdminOpen}>
+                                    <Typography textAlign="center">Admin Portal</Typography>
+                                </MenuItem>
+                            )}
+                            <MenuItem onClick={handleSettingsOpen}>
+                                <Typography textAlign="center">Settings</Typography>
+                            </MenuItem>
+                            <MenuItem onClick={handleLogOut}>
+                                <Typography textAlign="center">Logout</Typography>
+                            </MenuItem>
                         </Menu>
                     </Box>
                 </Toolbar>
             </Container>
-            <QuickSearchPage
-                open={searchModalOpen}
-                onClose={handleCloseSearchModal}
-            />
 
+            <QuickSearchPage open={searchModalOpen} onClose={() => setSearchModalOpen(false)}/>
         </AppBar>
-        // </HideOnScroll>
-    )
+    );
 }
 
 export default ResponsiveAppBar;

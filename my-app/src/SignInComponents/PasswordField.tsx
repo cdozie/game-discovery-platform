@@ -2,7 +2,16 @@ import {IconButton, InputAdornment, TextField} from "@mui/material";
 import {Visibility, VisibilityOff} from "@mui/icons-material";
 import React from "react";
 
-function PasswordField({label, placeholder, onChange, value}: any) {
+type PasswordFieldProps = {
+    label: string;
+    placeholder: string;
+    onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    value: string;
+    autoComplete?: string;
+    name?: string;
+};
+
+function PasswordField({label, placeholder, onChange, value, autoComplete, name}: PasswordFieldProps) {
 
     const [showPassword, setShowPassword] = React.useState(false);
 
@@ -17,7 +26,8 @@ function PasswordField({label, placeholder, onChange, value}: any) {
             onChange={onChange}
             placeholder={placeholder}
             type={showPassword ? 'text' : 'password'}
-            autoComplete='true'
+            autoComplete={autoComplete}
+            name={name}
             sx={{marginBottom: '1em'}}
             InputProps={{
                 endAdornment: (

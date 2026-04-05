@@ -1,6 +1,6 @@
 package com.madre.excelweb.service.api;
 
-import com.madre.excelweb.jpa.entity.GameData;
+import com.madre.excelweb.service.CatalogImportGame;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.retry.RetryContext;
@@ -11,7 +11,7 @@ import java.util.List;
 
 @Slf4j
 @RequiredArgsConstructor
-public class PsnApiIterator implements Iterator<List<GameData>> {
+public class PsnApiIterator implements Iterator<List<CatalogImportGame>> {
 
     public static final Integer MAX_DATA = 8192;
     private static final String URL_TEMPLATE = "/STORE-MSF77008-ALLGAMES?size=%s&start=%s&gameContentType=games&sort=release_date&direction=desc"
@@ -19,7 +19,7 @@ public class PsnApiIterator implements Iterator<List<GameData>> {
     private final PsnApiReader psnApiReader;
     private final RetryTemplate retryTemplate;
     private Integer currentOffset = 0;
-    private List<GameData> nextSetOfData;
+    private List<CatalogImportGame> nextSetOfData;
 
     @Override
     public boolean hasNext() {
@@ -28,11 +28,11 @@ public class PsnApiIterator implements Iterator<List<GameData>> {
     }
 
     @Override
-    public List<GameData> next() {
+    public List<CatalogImportGame> next() {
         return nextSetOfData;
     }
 
-    private List<GameData> getNextSetOfData(RetryContext retryContext) {
+    private List<CatalogImportGame> getNextSetOfData(RetryContext retryContext) {
         final int retryCount = retryContext.getRetryCount() + 1;
 
         final String nextPageLink = generateNextPageQuery(currentOffset);
@@ -40,7 +40,7 @@ public class PsnApiIterator implements Iterator<List<GameData>> {
         log.info("Getting next set of data from {}: Attempt #{}", nextPageLink, retryCount);
         try {
 
-            List<GameData> data = psnApiReader.getGames(nextPageLink);
+            List<CatalogImportGame> data = psnApiReader.getGames(nextPageLink);
 
             log.info("Successfully retrieved next set of data from {} on Attempt #{}", nextPageLink, retryCount);
 

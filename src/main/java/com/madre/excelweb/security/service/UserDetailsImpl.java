@@ -1,6 +1,7 @@
 package com.madre.excelweb.security.service;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.madre.excelweb.jpa.entity.AppRole;
 import com.madre.excelweb.jpa.entity.AppUser;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Getter
@@ -28,16 +30,22 @@ public class UserDetailsImpl implements UserDetails {
 
     private final Collection<? extends GrantedAuthority> authorities;
 
+    private final boolean accountNonLocked;
+
+    private final boolean enabled;
+
     public static UserDetailsImpl build(AppUser user) {
-        List<GrantedAuthority> authorities = user.getRoles().stream()
-                .map(role -> new SimpleGrantedAuthority(role.getName().name()))
+        List<GrantedAuthority> authorities = (user.getRoles() == null ? Set.<AppRole>of() : user.getRoles()).stream()
+                .map(role -> new SimpleGrantedAuthority(role.getName().getName()))
                 .collect(Collectors.toList());
         return new UserDetailsImpl(
                 user.getId(),
                 user.getUsername(),
                 user.getEmail(),
                 user.getPassword(),
-                authorities);
+                authorities,
+                !user.isCurrentlyBanned(),
+                true);
     }
 
     @Override
@@ -52,7 +60,7 @@ public class UserDetailsImpl implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return true;
+        return accountNonLocked;
     }
 
     @Override
@@ -62,6 +70,6 @@ public class UserDetailsImpl implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        return enabled;
     }
 }

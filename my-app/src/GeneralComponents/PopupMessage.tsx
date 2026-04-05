@@ -21,7 +21,6 @@ export enum Severity {
 
 const PopupMessage: React.FC<MessageProps> = ({message, severity = Severity.SUCCESS}: MessageProps) => {
     const [open, setOpen] = React.useState<boolean>(!!message);
-    const [currentMessage, setCurrentMessage] = React.useState<string | null | undefined>(null);
     const handleClose = (event: React.SyntheticEvent | Event, reason?: string) => {
         if (reason === 'clickaway') {
             return;

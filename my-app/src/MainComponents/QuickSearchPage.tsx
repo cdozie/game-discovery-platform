@@ -1,6 +1,7 @@
 import {
     alpha,
     Avatar,
+    Button,
     Container,
     debounce,
     InputBase,
@@ -14,27 +15,21 @@ import {
 } from "@mui/material";
 import React, {useEffect, useState} from "react";
 import SearchIcon from "@mui/icons-material/Search";
-import axios from "axios";
-import {Link} from "react-router-dom";
+import OpenInFullIcon from "@mui/icons-material/OpenInFull";
+import {Link, useNavigate} from "react-router-dom";
 import {GameData} from "../GeneralComponents/types/GameData";
 import {ModalMainProps} from "../GeneralComponents/types/ModalMainProps";
-
+import {getErrorMessage} from "../api/client";
+import {searchGames} from "../api/games";
 
 const Search = styled('div')(({theme}) => ({
     position: 'relative',
-    borderRadius: '1em',
-    backgroundColor: alpha(theme.palette.common.white, 0.7),
-    '&:hover': {
-        backgroundColor: alpha(theme.palette.common.white, 0.9),
-    },
-    marginRight: theme.spacing(2),
-    marginLeft: 0,
+    borderRadius: '1.2em',
+    backgroundColor: alpha(theme.palette.common.white, 0.92),
     width: '100%',
-    [theme.breakpoints.up('sm')]: {
-        marginLeft: theme.spacing(3),
-        width: 'auto',
-    },
+    boxShadow: '0 24px 60px rgba(15, 5, 37, 0.28)'
 }));
+
 const SearchIconWrapper = styled('div')(({theme}) => ({
     padding: theme.spacing(0, 2),
     height: '100%',
@@ -42,157 +37,175 @@ const SearchIconWrapper = styled('div')(({theme}) => ({
     pointerEvents: 'none',
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
 }));
+
 const StyledInputBase = styled(InputBase)(({theme}) => ({
     color: 'inherit',
+    width: '100%',
     '& .MuiInputBase-input': {
         padding: theme.spacing(2, 1, 2, 0),
-        // vertical padding + font size from searchIcon
         paddingLeft: `calc(1em + ${theme.spacing(4)})`,
-        transition: theme.transitions.create('width'),
         width: '100%',
-        [theme.breakpoints.up('md')]: {
-            width: '20ch',
-        },
         '&::placeholder': {
-            color: 'rgb(105,105,105)',  // For example, making the placeholder text red
-            fontStyle: 'italic',  // Making it italic
-            opacity: 1,  // To ensure full color opacity
-            fontWeight: 'bolder'
+            color: 'rgb(82,82,101)',
+            fontStyle: 'italic',
+            opacity: 1,
+            fontWeight: 700
         }
-    },
+    }
 }));
+
 const HoveredListItem = styled(ListItem)(({theme}) => ({
+    transition: 'background-color 180ms ease, transform 180ms ease',
     '&:hover': {
-        backgroundColor: alpha(theme.palette.primary.main, 0.1), // Change the background color on hover
-        boxShadow: '0px 0px 10px 2px rgba(0, 0, 0, 0.1)', // Add a glow/shadow effect
-    },
+        backgroundColor: alpha(theme.palette.primary.main, 0.08),
+        transform: 'translateY(-1px)'
+    }
 }));
 
 const ControlNotice = styled(Typography)(({theme}) => ({
-    color: 'white', // Subtle color
+    color: 'white',
     textAlign: 'right',
-    fontSize: '0.8rem', // Make it smaller than standard text
-    marginTop: theme.spacing(1), // Add some top margin
-    fontWeight: 'bolder'
+    fontSize: '0.8rem',
+    marginTop: theme.spacing(1),
+    fontWeight: 700
 }));
+
 const QuickSearchPage: React.FC<ModalMainProps> = ({open, onClose}) => {
     const [searchQuery, setSearchQuery] = useState('');
-    const [errorMessage, setErrorMessage] = useState('');
     const [searchResults, setSearchResults] = useState<GameData[]>([]);
-    const searchLimit: number = 40;
+    const [message, setMessage] = useState('');
+    const searchLimit = 30;
+    const navigate = useNavigate();
 
-    const searchBarRef = React.useRef<HTMLDivElement | null>(null);
-
-
-    const debouncedSearch = React.useCallback(
-        debounce((query: string) => {
-            axios.get(`/api/auth/games/search?query=${query}&limit=${searchLimit}`)
-                .then(response => {
-                    setSearchResults(response.data);
-                })
-                .catch(error => {
-                    console.log(error)
-                    // setErrorMessage((error.response && error.response.data && error.response.data.message) || error.message);
-                    setSearchResults([])
-                });
-        }, 300), []);
+    const debouncedSearch = React.useMemo(() =>
+            debounce(async (query: string) => {
+                try {
+                    const results = await searchGames(query, searchLimit);
+                    setSearchResults(results);
+                    setMessage(results.length === 0 ? 'No matches found.' : '');
+                } catch (error) {
+                    setSearchResults([]);
+                    setMessage(getErrorMessage(error));
+                }
+            }, 250),
+        []
+    );
 
     useEffect(() => {
-        if (searchQuery) {
-            debouncedSearch(searchQuery);
-
+        if (searchQuery.trim()) {
+            debouncedSearch(searchQuery.trim());
         } else {
             setSearchResults([]);
+            setMessage('');
         }
 
         return () => debouncedSearch.clear();
-
     }, [searchQuery, debouncedSearch]);
 
-    const onLinkClick = (id: string) => {
+    const closeAndReset = () => {
+        setSearchQuery('');
+        setSearchResults([]);
+        setMessage('');
         onClose();
-        setSearchQuery(''); // Clear search query
+    };
+
+    function openFullSearchPage(queryOverride = searchQuery) {
+        const normalizedQuery = queryOverride.trim();
+        closeAndReset();
+        navigate(normalizedQuery ? `/search?q=${encodeURIComponent(normalizedQuery)}` : '/search');
     }
 
-    const onCloseClearOut = () => {
-        onClose();
-        setSearchQuery("")
+    function formatSecondaryText(result: GameData) {
+        if (result.provider && result.platforms) {
+            return `${result.provider} • ${result.platforms}`;
+        }
+        return result.provider || result.platforms || 'Platform unknown';
     }
 
     return (
-        <Modal open={open}
-               onClose={() => onCloseClearOut()}
-               aria-labelledby="search-modal"
-               sx={{
-                   display: 'flex',
-                   alignItems: 'flex-start',
-                   justifyContent: 'center',
-                   backdropFilter: 'blur(5px)',
-                   padding: '10vh'
-               }}
+        <Modal
+            open={open}
+            onClose={closeAndReset}
+            aria-labelledby="search-modal"
+            sx={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'center',
+                backdropFilter: 'blur(8px)',
+                padding: '10vh 1.25rem'
+            }}
         >
-
-            <Container>
-                {/*<PopupMessage message={errorMessage} severity={Severity.SUCCESS}/>*/}
-                <Search ref={searchBarRef}>
+            <Container maxWidth="md">
+                <Search>
                     <SearchIconWrapper>
                         <SearchIcon/>
                     </SearchIconWrapper>
                     <StyledInputBase
                         fullWidth
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder={"Search Games"}
-                        type={'text'}
-                        autoComplete='true'
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                                event.preventDefault();
+                                openFullSearchPage();
+                            }
+                        }}
+                        placeholder="Search games by title or publisher"
+                        autoFocus
                     />
                 </Search>
-                <ControlNotice>Hint: Can Press "Control + S" to pull up quick search</ControlNotice>
-                {searchResults?.length > 0 && (
-                    <List style={{
-                        // top: searchBarRef.current ? searchBarRef.current.offsetTop + searchBarRef.current.offsetHeight + 'px' : '100%',
-                        // left: searchBarRef.current ? searchBarRef.current.offsetLeft + 'px' : '0',
-                        backgroundColor: 'rgba(255,255,255,0.8)',
-                        borderRadius: '1em',
-                        // width: searchBarRef.current ? searchBarRef.current.offsetWidth + 'px' : 'auto',
-                        maxHeight: '70vh',
-                        overflowY: 'auto',
-                        marginTop: '1em', // Provide a bit of spacing between the search bar and the list
+                <ControlNotice>Press Ctrl + S to open this from anywhere.</ControlNotice>
+                <Button
+                    onClick={() => openFullSearchPage()}
+                    startIcon={<OpenInFullIcon/>}
+                    sx={{mt: 1, color: 'white', borderColor: 'rgba(255,255,255,0.3)'}}
+                    variant="outlined"
+                >
+                    Open full search page
+                </Button>
 
+                {message && (
+                    <Typography sx={{color: 'white', mt: 2, fontWeight: 700}}>
+                        {message}
+                    </Typography>
+                )}
 
-                    }}>
-                        {searchResults.map((result: any) => (
-                            <Link to={`/games/${result.id}`} key={result.id} onClick={() => onLinkClick(result.id)}
-                                  style={{textDecoration: 'none', color: "black"}}>
-
-                                <HoveredListItem sx={{marginBotton: '1em'}}
-                                                 onClick={() => onLinkClick(result.id)}>
+                {searchResults.length > 0 && (
+                    <List
+                        sx={{
+                            backgroundColor: 'rgba(255,255,255,0.92)',
+                            borderRadius: '1.2em',
+                            maxHeight: '70vh',
+                            overflowY: 'auto',
+                            marginTop: '1em',
+                            padding: 1
+                        }}
+                    >
+                        {searchResults.map(result => (
+                            <Link
+                                to={`/games/${result.id}`}
+                                key={result.id}
+                                onClick={closeAndReset}
+                                style={{textDecoration: 'none', color: "black"}}
+                            >
+                                <HoveredListItem>
                                     <ListItemAvatar>
                                         <Avatar src={result.imageUrl} alt={result.name}/>
                                     </ListItemAvatar>
                                     <ListItemText
-                                        primary={
-                                            <Typography fontWeight="bolder">
-                                                {result.name}
-                                            </Typography>
-                                        }
+                                        primary={<Typography fontWeight="bolder">{result.name}</Typography>}
+                                        secondary={formatSecondaryText(result)}
                                     />
                                 </HoveredListItem>
                             </Link>
                         ))}
-
-                    </List>)
-
-                }
-
+                    </List>
+                )}
             </Container>
-
-
         </Modal>
-
-    )
-}
+    );
+};
 
 export default React.memo(QuickSearchPage);

@@ -1,6 +1,6 @@
 export type GameData = {
     id: string;
-    psnId: string;
+    catalogSources?: string;
     name: string;
     description: string;
     categories: string;
@@ -10,6 +10,12 @@ export type GameData = {
     releaseDate: string;
     provider: string;
     imageUrl: string;
+    interactions?: string;
+    comments?: string;
+    wishlistTotal?: string;
+    averageRating?: string | null;
+    created?: string;
+    lastModified?: string;
     inWishlist: boolean;
 };
 

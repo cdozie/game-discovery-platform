@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class GameIdRequest {
-    private Long gameId;
+    private String gameId;
 
 }

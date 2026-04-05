@@ -7,7 +7,7 @@ import lombok.Data;
 @Builder
 public class GameDataInteractionsDto {
     private String id;
-    private String psnId;
+    private String catalogSources;
     private String name;
     private String description;
     private String categories;

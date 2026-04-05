@@ -1,0 +1,52 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/projects?currentSchema=public&serverTimezone=UTC}
+    username: ${SPRING_DATASOURCE_USERNAME:}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
+      database: ${SPRING_DATA_REDIS_DATABASE:0}
+      timeout: ${SPRING_DATA_REDIS_TIMEOUT:5s}
+      migration: ${SPRING_DATA_REDIS_MIGRATION:10000}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    enabled: true
+  servlet:
+    multipart:
+      max-file-size: ${SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE:40MB}
+      max-request-size: ${SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE:40MB}
+web:
+  frontend:
+    domain: ${FRONTEND_DOMAIN:http://localhost:3001}
+  app:
+    admin:
+      bootstrap-usernames: ${WEB_ADMIN_BOOTSTRAP_USERNAMES:}
+      bootstrap-emails: ${WEB_ADMIN_BOOTSTRAP_EMAILS:}
+    psn-sync:
+      bootstrap-on-empty-catalog: true
+    igdb-sync:
+      enabled: ${IGDB_SYNC_ENABLED:false}
+      client-id: ${IGDB_CLIENT_ID:}
+      client-secret: ${IGDB_CLIENT_SECRET:}
+      page-size: ${IGDB_SYNC_PAGE_SIZE:250}
+      cron: ${IGDB_SYNC_CRON:0 30 0 * * ?}
+      lock-path: ${IGDB_SYNC_LOCK_PATH:catalog-sync}
+      platform-ids: ${IGDB_SYNC_PLATFORM_IDS:6,49,169}
+    catalog:
+      consolidation:
+        batch-size: ${CATALOG_CONSOLIDATION_BATCH_SIZE:100}
+    media:
+      storage-path: ${MEDIA_STORAGE_PATH:./var/media}
+      public-base-path: ${MEDIA_PUBLIC_BASE_PATH:/api/media}
+  mail:
+    send-verification-email: ${SEND_VERIFICATION_EMAIL:false}

@@ -2,6 +2,7 @@ package com.madre.excelweb.jpa.entity;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.madre.excelweb.service.util.LongToStringSerializer;
+import com.madre.excelweb.service.util.PublicIdUtils;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,12 +12,15 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.Set;
 
 @Entity
-@Table(name = "games", uniqueConstraints = {@UniqueConstraint(columnNames = {"psn_id"})}, indexes =
-        {@Index(name = "games_name_index", columnList = "name")})
+@Table(name = "games", indexes = {
+        @Index(name = "games_name_index", columnList = "name"),
+        @Index(name = "games_normalized_title_key_idx", columnList = "normalized_title_key")
+})
 @SecondaryTable(name = "game_stats", pkJoinColumns = @PrimaryKeyJoinColumn(name = "game_id", referencedColumnName = "id"))
 @Data
 @Builder
@@ -31,13 +35,22 @@ public class GameData implements Serializable {
     @JsonSerialize(using = LongToStringSerializer.class)
     private Long id;
 
+    @Basic(optional = false)
+    @Column(name = "public_id", nullable = false, unique = true, updatable = false, length = 64)
+    private String publicId;
 
     @Basic(optional = false)
-    @Column(name = "psn_id", nullable = false, updatable = false)
-    private String psnId;
+    @Column(name = "catalog_sources", nullable = false)
+    private String catalogSources;
+
+    @Column(name = "catalog_group_key")
+    private String catalogGroupKey;
+
+    @Column(name = "normalized_title_key")
+    private String normalizedTitleKey;
 
     @Basic(optional = false)
-    @Column(name = "name", nullable = false, updatable = false)
+    @Column(name = "name", nullable = false)
     private String name;
 
     @Basic(optional = false)
@@ -57,7 +70,7 @@ public class GameData implements Serializable {
     private String price;
 
     @Basic(optional = false)
-    @Column(name = "url", nullable = false)
+    @Column(name = "url", nullable = false, columnDefinition = "TEXT")
     private String url;
 
     @Basic(optional = false)
@@ -65,12 +78,24 @@ public class GameData implements Serializable {
     private String releaseDate;
 
     @Basic(optional = false)
-    @Column(name = "provider_name", nullable = false, updatable = false)
+    @Column(name = "provider_name", nullable = false)
     private String providerName;
 
     @Basic(optional = false)
-    @Column(name = "image_url", nullable = false)
+    @Column(name = "image_url", nullable = false, columnDefinition = "TEXT")
     private String imageUrl;
+
+    @Basic(optional = false)
+    @Column(name = "admin_locked_fields", nullable = false)
+    private String adminLockedFields;
+
+    @Basic
+    @Column(name = "admin_last_modified_by_user_id")
+    private Long adminLastModifiedByUserId;
+
+    @Basic
+    @Column(name = "admin_last_modified_at", columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime adminLastModifiedAt;
 
     @Basic(optional = false)
     @Column(name = "created", nullable = false, updatable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
@@ -109,8 +134,7 @@ public class GameData implements Serializable {
         if (o == null || getClass() != o.getClass()) return false;
         GameData gameData = (GameData) o;
 
-        return Objects.equals(psnId, gameData.psnId)
-                && Objects.equals(name, gameData.name)
+        return Objects.equals(name, gameData.name)
                 && Objects.equals(description, gameData.description)
                 && Objects.equals(categories, gameData.categories)
                 && Objects.equals(platforms, gameData.platforms)
@@ -118,14 +142,27 @@ public class GameData implements Serializable {
                 && Objects.equals(url, gameData.url)
                 && Objects.equals(releaseDate, gameData.releaseDate)
                 && Objects.equals(providerName, gameData.providerName)
-                && Objects.equals(imageUrl, gameData.imageUrl);
+                && Objects.equals(imageUrl, gameData.imageUrl)
+                && Objects.equals(normalizedTitleKey, gameData.normalizedTitleKey)
+                && Objects.equals(catalogGroupKey, gameData.catalogGroupKey);
     }
 
     @PrePersist
     public void setDefaultValues() {
+        final OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+        if (publicId == null || publicId.isBlank()) publicId = PublicIdUtils.newPublicId();
         if (interactions == null) interactions = 0L;
         if (wishlistTotal == null) wishlistTotal = 0L;
         if (comments == null) comments = 0L;
         if (posts == null) posts = 0L;
+        if (catalogSources == null || catalogSources.isBlank()) catalogSources = "PLAYSTATION_STORE";
+        if (adminLockedFields == null) adminLockedFields = "";
+        if (created == null) created = now;
+        if (lastModified == null) lastModified = now;
+    }
+
+    @PreUpdate
+    public void touch() {
+        lastModified = OffsetDateTime.now(ZoneOffset.UTC);
     }
 }

@@ -1,0 +1,3 @@
+ALTER TABLE games
+    ALTER COLUMN image_url TYPE TEXT,
+    ALTER COLUMN url TYPE TEXT;

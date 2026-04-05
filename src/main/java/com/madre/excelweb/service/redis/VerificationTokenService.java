@@ -1,46 +1,60 @@
 package com.madre.excelweb.service.redis;
 
 import com.madre.excelweb.jpa.entity.EmailVerificationToken;
+import com.madre.excelweb.jpa.entity.VerificationTokenEntity;
+import com.madre.excelweb.jpa.repositories.VerificationTokenRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @RequiredArgsConstructor
 public class VerificationTokenService {
-    private static final String VERIFICATION_TOKEN_KEY_TEMPLATE = "verification-token:%s";
-    private final RedisTemplate<String, EmailVerificationToken> redisTemplate;
+    private final VerificationTokenRepository verificationTokenRepository;
 
+    @Transactional
     public void saveVerificationToken(EmailVerificationToken token) {
-        try {
-            log.info("Saving verification token: {}", token);
-            redisTemplate.opsForValue().set(VERIFICATION_TOKEN_KEY_TEMPLATE.formatted(token.getEmail()), token, EmailVerificationToken.EXPIRATION, TimeUnit.MINUTES);
-            log.info("Verification token successfully saved: {}", token);
-        } catch (Exception e) {
-            log.error("Error saving verification token: {}", token, e);
-            throw e;
-        }
+        log.info("Saving verification token for email: {}", token.getEmail());
+        verificationTokenRepository.findByEmail(token.getEmail())
+                .ifPresent(existing -> verificationTokenRepository.delete(existing));
+
+        final VerificationTokenEntity entity = VerificationTokenEntity.builder()
+                .email(token.getEmail())
+                .token(token.getToken())
+                .expiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusMinutes(EmailVerificationToken.EXPIRATION))
+                .build();
+        verificationTokenRepository.save(entity);
+        log.info("Verification token successfully saved for email: {}", token.getEmail());
     }
 
     public Optional<EmailVerificationToken> getVerificationToken(String email) {
-        return Optional.ofNullable(redisTemplate.opsForValue().get(VERIFICATION_TOKEN_KEY_TEMPLATE.formatted(email)));
+        return verificationTokenRepository.findByEmail(email)
+                .filter(e -> e.getExpiresAt().isAfter(OffsetDateTime.now(ZoneOffset.UTC)))
+                .map(e -> EmailVerificationToken.builder()
+                        .token(e.getToken())
+                        .email(e.getEmail())
+                        .expiryDate(e.getExpiresAt().toLocalDateTime())
+                        .build());
     }
 
+    @Transactional
     public void removeVerificationToken(String email) {
-        try {
-            log.info("Removing verification token for email: {}", email);
-            final Boolean deleted = redisTemplate.delete(VERIFICATION_TOKEN_KEY_TEMPLATE.formatted(email));
-            if (Boolean.FALSE.equals(deleted)) {
-                log.warn("Verification token not found for email: {}", email);
-            } else {
-                log.info("Verification token successfully removed: {}", email);
-            }
-        } catch (Exception e) {
-            log.error("Error removing verification token for email: {}", email, e);
-            throw e;
+        log.info("Removing verification token for email: {}", email);
+        verificationTokenRepository.deleteByEmail(email);
+        log.info("Verification token successfully removed for email: {}", email);
+    }
+
+    @Transactional
+    @Scheduled(cron = "0 0 * * * *")
+    public void cleanupExpired() {
+        final int deleted = verificationTokenRepository.deleteExpired(OffsetDateTime.now(ZoneOffset.UTC));
+        if (deleted > 0) {
+            log.info("Cleaned up {} expired verification tokens", deleted);
         }
     }
 }

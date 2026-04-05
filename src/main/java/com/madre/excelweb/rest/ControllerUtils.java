@@ -29,7 +29,7 @@ public class ControllerUtils {
         return (AppUser) request.getAttribute(AuthTokenFilter.USER_INFO_ATTRIBUTE);
     }
 
-    public static ResponseEntity<MessageResponse> validateGame(final Optional<GameData> game, Long gameId) {
+    public static ResponseEntity<MessageResponse> validateGame(final Optional<GameData> game, String gameId) {
 
         if (game.isEmpty()) {
             log.error("Game with id {} not found", gameId);
@@ -38,7 +38,10 @@ public class ControllerUtils {
         return null;
     }
 
-    protected Boolean gameInWishlist(final AppUser appUser, final GameData gameData) {
+    public Boolean gameInWishlist(final AppUser appUser, final GameData gameData) {
+        if (appUser == null || gameData == null) {
+            return false;
+        }
         final Wishlist existingWishlistEntry = wishlistRepository.findByUserinfoIdAndGameinfoId(appUser.getId(), gameData.getId()).orElse(null);
         return existingWishlistEntry != null;
     }
@@ -51,12 +54,12 @@ public class ControllerUtils {
         return userRepository.getUserById(userId);
     }
 
-    protected GameDto gameDataToGameDto(final AppUser appUser, final GameData gameData) {
+    public GameDto gameDataToGameDto(final AppUser appUser, final GameData gameData) {
 
         return GameDto.builder()
-                .id(gameData.getId().toString())
+                .id(gameData.getPublicId())
                 .name(gameData.getName())
-                .psnId(gameData.getPsnId())
+                .catalogSources(gameData.getCatalogSources())
                 .url(gameData.getUrl())
                 .price(gameData.getPrice())
                 .releaseDate(gameData.getReleaseDate())
@@ -65,16 +68,23 @@ public class ControllerUtils {
                 .platforms(gameData.getPlatforms())
                 .provider(gameData.getProviderName())
                 .imageUrl(gameData.getImageUrl())
+                .interactions(String.valueOf(gameData.getInteractions()))
+                .comments(String.valueOf(gameData.getComments()))
+                .wishlistTotal(String.valueOf(gameData.getWishlistTotal()))
+                .averageRating(gameData.getAverageRating() == null ? null : String.valueOf(gameData.getAverageRating()))
+                .created(gameData.getCreated())
+                .lastModified(gameData.getLastModified())
                 .inWishlist(gameInWishlist(appUser, gameData))
                 .build();
     }
 
-    protected WishlistDto wishlistEntryToWishlistDto(final Wishlist wishlist) {
+    public WishlistDto wishlistEntryToWishlistDto(final Wishlist wishlist) {
         return WishlistDto.builder()
                 .gameinfo(gameDataToGameDto(wishlist.getUserinfo(), wishlist.getGameinfo()))
                 .id(wishlist.getId())
                 .rating(wishlist.getRating())
                 .status(wishlist.getStatus())
+                .selectedPlatform(wishlist.getSelectedPlatform())
                 .build();
     }
 

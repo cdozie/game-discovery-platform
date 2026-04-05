@@ -1,18 +1,21 @@
 package com.madre.excelweb.rest;
 
 import com.madre.excelweb.api.model.*;
+import com.madre.excelweb.jpa.entity.AppRole;
 import com.madre.excelweb.jpa.entity.AppUser;
 import com.madre.excelweb.jpa.entity.EmailVerificationToken;
 import com.madre.excelweb.jpa.entity.GameData;
 import com.madre.excelweb.jpa.repositories.GameRepository;
+import com.madre.excelweb.jpa.repositories.RoleRepository;
 import com.madre.excelweb.jpa.repositories.UserRepository;
+import com.madre.excelweb.models.Role;
 import com.madre.excelweb.security.jwt.JwtUtils;
 import com.madre.excelweb.security.service.UserDetailsImpl;
-import com.madre.excelweb.service.api.PsnGameSyncService;
 import com.madre.excelweb.service.redis.PendingUserService;
 import com.madre.excelweb.service.redis.VerificationTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -29,26 +32,36 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
-@CrossOrigin(value = "*", maxAge = 3600)
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/auth")
 public class SetUpController {
+    @Value("${web.frontend.domain}")
+    private String frontendDomain;
+    @Value("${web.backend.domain}")
+    private String backendDomain;
+    @Value("${web.mail.send-verification-email:true}")
+    private boolean sendVerificationEmailEnabled;
+
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JavaMailSender javaMailSender;
     private final PendingUserService pendingUserService;
     private final VerificationTokenService verificationTokenService;
     private final GameRepository gameRepository;
-    private final PsnGameSyncService psnGameSyncService;
 
 
     @PostMapping("/login")
@@ -59,6 +72,13 @@ public class SetUpController {
             if (loginRequest.password().isEmpty() || loginRequest.username().isEmpty()) {
                 return ResponseEntity.badRequest().body(new MessageResponse(MessageType.ERROR, "Username/Password cannot be empty"));
             }
+
+            final Optional<AppUser> loginCandidate = userRepository.getUserByEmail(loginRequest.username())
+                    .or(() -> userRepository.getUserByUsername(loginRequest.username()));
+            if (loginCandidate.isPresent() && loginCandidate.get().isCurrentlyBanned()) {
+                return ResponseEntity.status(HttpStatus.LOCKED)
+                        .body(new MessageResponse(MessageType.ERROR, formatBanMessage(loginCandidate.get())));
+            }
             Authentication authentication = authenticationManager
                     .authenticate(new UsernamePasswordAuthenticationToken(loginRequest.username(), loginRequest.password()));
             SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -66,7 +86,7 @@ public class SetUpController {
             UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
 
 
-            // Want to check if the user is in Redis pending verification
+            // Block login while the account is still pending verification.
             if (pendingUserService.getPendingUser(userDetails.getEmail()).isPresent()) {
                 return ResponseEntity.badRequest().body(new MessageResponse(MessageType.ERROR,
                         "Account is currently pending verification, please check the email associated with this account."));
@@ -119,17 +139,21 @@ public class SetUpController {
                 return ResponseEntity.badRequest().body(new MessageResponse(MessageType.ERROR, "Username must be at least 4 characters long"));
             }
 
-            // Check for accounts already pending  verification in Redis
+            // Check for accounts already pending verification.
             if (pendingUserService.getPendingUser(signupRequest.email()).isPresent()) {
                 log.warn("Email is already associated with an account pending verification. Please check your email for verification link.");
                 return ResponseEntity.badRequest().body(new MessageResponse(MessageType.ERROR,
                         "Email is already associated with an account pending verification. Please check your email for verification link."));
             }
 
+            final AppRole defaultRole = roleRepository.findByName(Role.USER)
+                    .orElseThrow(() -> new IllegalStateException("Default USER role is missing"));
+
             final AppUser appUser = AppUser.builder().
                     username(signupRequest.username())
                     .email(signupRequest.email())
                     .password(passwordEncoder.encode(signupRequest.password()))
+                    .roles(Set.of(defaultRole))
                     .build();
 
             final String token = UUID.randomUUID().toString();
@@ -144,10 +168,14 @@ public class SetUpController {
             pendingUserService.savePendingUser(appUser);
 
 
-            sendVerificationEmail(appUser.getEmail(), token);
+            final VerificationDelivery verificationDelivery = sendVerificationEmail(appUser.getEmail(), token);
 
-            return ResponseEntity.ok(new MessageResponse(MessageType.SUCCESS, "An email has been sent to " + appUser.getEmail() +
-                    " for verification. Click on the link sent within the next 24 hours to verify your email."));
+            return ResponseEntity.ok(new VerificationResponse(
+                    MessageType.SUCCESS,
+                    registrationMessage(appUser.getEmail(), verificationDelivery.emailSent()),
+                    verificationDelivery.emailSent(),
+                    verificationDelivery.verificationUrl()
+            ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(MessageType.ERROR, "Error Registering User. Please try again later."));
         }
@@ -180,11 +208,14 @@ public class SetUpController {
 
             pendingUserService.savePendingUser(possibleUser.get());
 
-            sendVerificationEmail(email, token);
+            final VerificationDelivery verificationDelivery = sendVerificationEmail(email, token);
 
-            return ResponseEntity.ok(new MessageResponse(MessageType.SUCCESS, "An new email has been sent to " + email +
-                    " for verification. Click on the link sent within the next 24 hours to verify your email." +
-                    " If you do not see the email, please check your spam folder. Click here to resend the email again."));
+            return ResponseEntity.ok(new VerificationResponse(
+                    MessageType.SUCCESS,
+                    resendVerificationMessage(email, verificationDelivery.emailSent()),
+                    verificationDelivery.emailSent(),
+                    verificationDelivery.verificationUrl()
+            ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(MessageType.ERROR, "Error Resending Verification Email. Please try again later."));
         }
@@ -226,6 +257,10 @@ public class SetUpController {
 
             final AppUser user = possibleUser.get();
 
+            final AppRole defaultRole = roleRepository.findByName(Role.USER)
+                    .orElseThrow(() -> new IllegalStateException("Default USER role is missing"));
+            user.setRoles(Set.of(defaultRole));
+
             userRepository.save(user);
 
             try {
@@ -238,7 +273,7 @@ public class SetUpController {
             }
 
             log.info("Email has been verified and user {} has been successfully registered", user);
-            return ResponseEntity.status(HttpStatus.FOUND).location(URI.create("http://localhost:3000/api/login?verified=true"))
+            return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(frontendDomain + "/api/login?verified=true"))
                     .body(new MessageResponse(MessageType.SUCCESS, "Email Verified Successfully"));
         } catch (Exception e) {
             log.error("Error verifying email", e);
@@ -248,8 +283,8 @@ public class SetUpController {
 
     @GetMapping("/games/random")
     public ResponseEntity<List<GameData>> getRandomGameData(@RequestParam Integer limit) {
-        limit = limit == null ? 40 : limit;
-        return ResponseEntity.ok(gameRepository.findRandomGames(limit));
+        final int resolvedLimit = limit == null ? 40 : Math.max(1, Math.min(limit, 40));
+        return ResponseEntity.ok(gameRepository.findRandomGames(resolvedLimit));
     }
 
     //Want to return isAuthenticated boolean based on whether the current user is logged in/authenticated
@@ -276,29 +311,55 @@ public class SetUpController {
 
     }
 
-    @PostMapping("/admin/sync")
-    public void syncGames() {
-        try {
-            log.info("Starting manually triggered sync job for PSN games");
+    private VerificationDelivery sendVerificationEmail(final String email, final String token) {
+        final String urlFormat = backendDomain + "/api/auth/verify-email?token=%s&email=%s";
+        final String verificationURL = urlFormat.formatted(token, email);
 
-            psnGameSyncService.syncGames();
-            log.info("Successfully synced all PSN games");
-        } catch (Exception e) {
-            log.error("Error syncing PSN games", e);
+        if (!sendVerificationEmailEnabled) {
+            log.info("Verification email delivery disabled. Verification URL for {}: {}", email, verificationURL);
+            return new VerificationDelivery(false, verificationURL);
         }
 
-
-    }
-
-
-    private void sendVerificationEmail(final String email, final String token) {
-        final String urlFormat = "http://localhost:8081/api/auth/verify-email?token=%s&email=%s";
-        final String verificationURL = urlFormat.formatted(token, email);
         final SimpleMailMessage mailMessage = new SimpleMailMessage();
         mailMessage.setTo(email);
         mailMessage.setSubject("Email Verification: Games DB Network");
         mailMessage.setText("Thank you for registering with us. Please click on the link below to verify your email.\n" + verificationURL);
         javaMailSender.send(mailMessage);
+        return new VerificationDelivery(true, null);
+    }
 
+    private String registrationMessage(String email, boolean emailSent) {
+        if (emailSent) {
+            return "An email has been sent to " + email
+                    + " for verification. Click the link in that email within the next 24 hours to verify your account.";
+        }
+        return "Email delivery is disabled in the local profile, so no message was sent. Use the verification link below to verify your account.";
+    }
+
+    private String resendVerificationMessage(String email, boolean emailSent) {
+        if (emailSent) {
+            return "A new verification email has been sent to " + email
+                    + ". If you do not see it, check your spam folder and then try again.";
+        }
+        return "Email delivery is disabled in the local profile, so no message was sent. Use the verification link below.";
+    }
+
+    private record VerificationDelivery(boolean emailSent, String verificationUrl) {
+    }
+
+    private String formatBanMessage(final AppUser user) {
+        if (user.isBanPermanent()) {
+            return "Your account has been permanently banned."
+                    + (user.getBanReason() == null || user.getBanReason().isBlank() ? "" : " Reason: " + user.getBanReason());
+        }
+
+        if (user.getBanExpiresAt() != null) {
+            return "Your account is banned until "
+                    + user.getBanExpiresAt().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                    + (user.getBanReason() == null || user.getBanReason().isBlank() ? "." : ". Reason: " + user.getBanReason());
+        }
+
+        return "Your account is currently unavailable."
+                + (user.getBanReason() == null || user.getBanReason().isBlank() ? "" : " Reason: " + user.getBanReason());
     }
 }

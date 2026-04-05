@@ -1,22 +1,31 @@
 server:
-  port: 8081
+  port: ${SERVER_PORT:8081}
 spring:
   devtools:
     restart:
-      enabled: true
+      enabled: ${SPRING_DEVTOOLS_RESTART_ENABLED:false}
+    livereload:
+      enabled: ${SPRING_DEVTOOLS_LIVERELOAD_ENABLED:false}
   datasource:
-    url: jdbc:postgresql://localhost:5433/game_db?currentSchema=public&serverTimezone=UTC
-    username: postgres
-    password: ${SPRING_DATASOURCE_PASSWORD}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/game_db?currentSchema=public&serverTimezone=UTC}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
     driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
+      database: ${SPRING_DATA_REDIS_DATABASE:0}
+      repositories:
+        enabled: false
+      timeout: ${SPRING_DATA_REDIS_TIMEOUT:5s}
+      migration: ${SPRING_DATA_REDIS_MIGRATION:60000}
   mail:
-
-    host: smtp.gmail.com
-    port: 587
-
-    username: ${SPRING_MAIL_USERNAME}
-    password: ${SPRING_MAIL_PASSWORD}
-
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -24,28 +33,52 @@ spring:
           starttls:
             enable: true
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      migration: 60000
   flyway:
     baseline-on-migrate: true
     baseline-version: 1
     baseline-description: Initial Schema
+  servlet:
+    multipart:
+      max-file-size: ${SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE:40MB}
+      max-request-size: ${SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE:40MB}
 web:
+  backend:
+    domain: ${BACKEND_DOMAIN:http://localhost:8081}
+  mail:
+    send-verification-email: ${SEND_VERIFICATION_EMAIL:true}
   app:
-    jwt-secret-key: ${JWT_SECRET_KEY}
-    jwt-expiration-ms: 6000000
-    jwt-refresh-expiration-ms: 6000000
-    jwt-cookie-name: jwt
+    jwt-secret-key: ${JWT_SECRET_KEY:change-me-change-me-change-me-change-me}
+    jwt-expiration-ms: ${JWT_EXPIRATION_MS:6000000}
+    jwt-refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:6000000}
+    jwt-cookie-name: ${JWT_COOKIE_NAME:jwt}
+    psn-sync:
+      enabled: ${PSN_SYNC_ENABLED:true}
+      page-size: ${PSN_SYNC_PAGE_SIZE:250}
+      cron: ${PSN_SYNC_CRON:0 0 0 * * ?}
+      bootstrap-on-empty-catalog: ${PSN_SYNC_BOOTSTRAP_ON_EMPTY_CATALOG:false}
+      lock-path: ${PSN_SYNC_LOCK_PATH:catalog-sync}
+    igdb-sync:
+      enabled: ${IGDB_SYNC_ENABLED:false}
+      client-id: ${IGDB_CLIENT_ID:}
+      client-secret: ${IGDB_CLIENT_SECRET:}
+      page-size: ${IGDB_SYNC_PAGE_SIZE:250}
+      cron: ${IGDB_SYNC_CRON:0 30 0 * * ?}
+      lock-path: ${IGDB_SYNC_LOCK_PATH:catalog-sync}
+      platform-ids: ${IGDB_SYNC_PLATFORM_IDS:6,49,169}
+    catalog:
+      consolidation:
+        batch-size: ${CATALOG_CONSOLIDATION_BATCH_SIZE:100}
     id:
-      node-id: 234
+      node-id: ${NODE_ID:234}
+    media:
+      storage-path: ${MEDIA_STORAGE_PATH:./var/media}
+      public-base-path: ${MEDIA_PUBLIC_BASE_PATH:/api/media}
   frontend:
-    domain: http://localhost:3000
+    domain: ${FRONTEND_DOMAIN:http://localhost:3000}

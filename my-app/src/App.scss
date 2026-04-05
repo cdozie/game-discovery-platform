@@ -1,9 +1,9 @@
-$primary-text-color: #000000;
+$primary-text-color: #13091f;
 $secondary-text-color: #ffffff;
-$primary-bg-color: #7f45ea;
-$secondary-color: orange;
-$font-family-monospace: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif, apple color emoji, segoe ui emoji, Segoe UI Symbol, noto color emoji;
-$font-family-sans-serif: Arial, Helvetica, sans-serif;
+$primary-bg-color: #6f41c8;
+$secondary-color: #ffb347;
+$font-family-monospace: "Trebuchet MS", "Segoe UI", sans-serif;
+$font-family-sans-serif: "Segoe UI", "Trebuchet MS", sans-serif;
 $root-font-size: 100%;
 $default-font-weight: 800;
 $generic-box-shadow: 0 0 10px 10px rgba(255, 255, 255, 0.68);
@@ -47,11 +47,14 @@ h1, h2, h3, h4, h5, h6 {
 .MainApp {
   display: flex;
   flex-direction: column;
-  background: $primary-bg-color;
-  height: 100vh;
+  background:
+          radial-gradient(circle at top, rgba(175, 126, 255, 0.25), transparent 32%),
+          linear-gradient(180deg, #efe6ff 0%, #f8f4ff 45%, #efe2ff 100%);
+  min-height: 100vh;
+  width: 100%;
   overflow: auto;
-  justify-content: center;
-  align-items: center;
+  justify-content: flex-start;
+  align-items: stretch;
 
 }
 
@@ -152,6 +155,5 @@ h1, h2, h3, h4, h5, h6 {
 
   }
 }
-
 
 

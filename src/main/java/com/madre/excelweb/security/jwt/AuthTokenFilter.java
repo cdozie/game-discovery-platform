@@ -38,6 +38,12 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                 final UserDetails userDetails = fullUserInfo.getUserDetails();
 
                 final AppUser appUser = fullUserInfo.getAppUser();
+                if (!userDetails.isAccountNonLocked() || !userDetails.isEnabled()) {
+                    response.addHeader("Set-Cookie", jwtUtils.getCleanJwtCookie().toString());
+                    SecurityContextHolder.clearContext();
+                    filterChain.doFilter(request, response);
+                    return;
+                }
 
                 final UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
                         userDetails, null, userDetails.getAuthorities()

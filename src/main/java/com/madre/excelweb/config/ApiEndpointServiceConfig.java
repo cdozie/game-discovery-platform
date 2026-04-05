@@ -2,6 +2,7 @@ package com.madre.excelweb.config;
 
 import com.madre.excelweb.jpa.repositories.GameRepository;
 import com.madre.excelweb.jpa.repositories.WishlistRepository;
+import com.madre.excelweb.service.PublicEntityLookupService;
 import com.madre.excelweb.service.WishlistModificationService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,8 +12,9 @@ public class ApiEndpointServiceConfig {
 
     @Bean
     public WishlistModificationService wishlistModificationService(final WishlistRepository wishlistRepository,
-                                                                   final GameRepository gameRepository
+                                                                   final GameRepository gameRepository,
+                                                                   final PublicEntityLookupService publicEntityLookupService
     ) {
-        return new WishlistModificationService(wishlistRepository, gameRepository);
+        return new WishlistModificationService(wishlistRepository, gameRepository, publicEntityLookupService);
     }
 }

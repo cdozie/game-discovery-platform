@@ -1,0 +1,22 @@
+export type GameSubmission = {
+    id: string;
+    status: string;
+    name: string;
+    description?: string | null;
+    categories?: string | null;
+    platforms?: string | null;
+    providerName?: string | null;
+    imageUrl?: string | null;
+    releaseDate?: string | null;
+    url?: string | null;
+    reviewNotes?: string | null;
+    requestedByUsername?: string | null;
+    requestedByDisplayName?: string | null;
+    reviewedByUsername?: string | null;
+    createdGameId?: string | null;
+    createdGameName?: string | null;
+    canEdit?: boolean;
+    canWithdraw?: boolean;
+    createdAt?: string | null;
+    lastModified?: string | null;
+};

@@ -1,0 +1,21 @@
+export type AdminGame = {
+    id: string;
+    catalogSources?: string | null;
+    name: string;
+    description?: string | null;
+    categories?: string | null;
+    platforms?: string | null;
+    price?: string | null;
+    url?: string | null;
+    releaseDate?: string | null;
+    providerName?: string | null;
+    imageUrl?: string | null;
+    syncProtectedByUserId?: string | null;
+    syncProtectedAt?: string | null;
+    syncProtectedFields?: string[] | null;
+    wishlistTotal?: string | null;
+    comments?: string | null;
+    averageRating?: string | null;
+    created?: string | null;
+    lastModified?: string | null;
+};

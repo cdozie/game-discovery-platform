@@ -5,8 +5,7 @@ import com.madre.excelweb.api.model.MessageResponse;
 import com.madre.excelweb.api.model.MessageType;
 import com.madre.excelweb.api.model.dto.GameDataInteractionsDto;
 import com.madre.excelweb.jpa.entity.AppUser;
-import com.madre.excelweb.jpa.entity.GameData;
-import com.madre.excelweb.jpa.repositories.GameRepository;
+import com.madre.excelweb.service.GameCatalogService;
 import com.madre.excelweb.service.redis.GameStatsService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -17,14 +16,13 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @Slf4j
-@CrossOrigin(value = "*", maxAge = 3600)
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/auth")
 public class StatsController {
-    private final GameRepository gameRepository;
+    private final GameCatalogService gameCatalogService;
     private final GameStatsService gameStatsService;
-    private final ControllerUtils controllerUtils;
+    private final com.madre.excelweb.service.PublicEntityLookupService publicEntityLookupService;
 
     @GetMapping("/games/most-interacted-with")
     public ResponseEntity<?> retrieveMostInteractedGames(HttpServletRequest request, @RequestParam Long limit,
@@ -40,25 +38,8 @@ public class StatsController {
             final AppUser appUser = ControllerUtils.getAppUserFromRequest(request);
 
 
-            final List<GameData> games = gameRepository
-                    .findAllByOrderByInteractionsDesc(limit, lastId, lastInteractions);
-
-            final List<GameDataInteractionsDto> gameDtos = games.stream().map(gameStats ->
-                    GameDataInteractionsDto.builder()
-                            .id(gameStats.getId().toString())
-                            .name(gameStats.getName())
-                            .psnId(gameStats.getPsnId())
-                            .url(gameStats.getUrl())
-                            .price(gameStats.getPrice())
-                            .releaseDate(gameStats.getReleaseDate())
-                            .description(gameStats.getDescription())
-                            .categories(gameStats.getCategories())
-                            .platforms(gameStats.getPlatforms())
-                            .provider(gameStats.getProviderName())
-                            .imageUrl(gameStats.getImageUrl())
-                            .interactions(gameStats.getInteractions().toString())
-                            .inWishlist(controllerUtils.gameInWishlist(appUser, gameStats))
-                            .build()).toList();
+            final List<GameDataInteractionsDto> gameDtos = gameCatalogService
+                    .getPopularGames(appUser, limit, lastId, lastInteractions);
 
             log.info("Successfully retrieved most interacted games.");
             return ResponseEntity.ok().body(gameDtos);
@@ -72,10 +53,10 @@ public class StatsController {
 
     @PostMapping("/games/interactions")
     public void recordGameInteraction(@RequestBody GameIdRequest gameIdRequest) {
-        Long gameId = gameIdRequest.getGameId();
+        final String gameId = gameIdRequest.getGameId();
         log.info("Attempting to record game interaction for game id: {}", gameId);
         try {
-            gameStatsService.recordGameInteractions(gameId);
+            gameStatsService.recordGameInteractions(publicEntityLookupService.requireGame(gameId).getId());
             log.info("Successfully recorded game interaction for game id: {}", gameId);
         } catch (Exception e) {
             log.error("Error recording game interaction for game id: {}", gameId, e);

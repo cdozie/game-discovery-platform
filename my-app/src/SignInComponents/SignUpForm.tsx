@@ -3,11 +3,12 @@ import React from 'react';
 import '../App.scss';
 import {ThemeProvider} from "@mui/material/styles";
 import overrideTheme from "../themes";
-import {Alert, Box, Button, Container, Typography} from "@mui/material";
+import {Alert, Box, Button, Container, Link as MuiLink, Stack, Typography} from "@mui/material";
 import {Link} from "react-router-dom";
-import axios from "axios";
 import FormFieldInput from "./FormComponents";
 import PasswordField from "./PasswordField";
+import {getErrorMessage} from "../api/client";
+import {register, VerificationResponse} from "../api/games";
 
 function SignUpForm() {
     const [username, setUsername] = React.useState('');
@@ -15,18 +16,22 @@ function SignUpForm() {
     const [email, setEmail] = React.useState('');
     const [formMessage, setFormMessage] = React.useState('');
     const [formMessageType, setFormMessageType] = React.useState('success');
+    const [verificationInfo, setVerificationInfo] = React.useState<VerificationResponse | null>(null);
 
     const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormMessage('')
+        setFormMessage('');
+        setVerificationInfo(null);
         setUsername(e.target.value);
     }
     const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormMessage('')
+        setFormMessage('');
+        setVerificationInfo(null);
         setPassword(e.target.value);
     }
     const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const emailInput = e.target.value;
         setEmail(emailInput);
+        setVerificationInfo(null);
         if (isValidEmail(emailInput)) {
             setFormMessage(''); // clear error message if email is valid
         } else {
@@ -38,30 +43,22 @@ function SignUpForm() {
 
     }
 
-    const handleSignUpSubmit = (event: React.FormEvent) => {
+    const handleSignUpSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
-        axios.post("/api/auth/register", {
-            username: username,
-            password: password,
-            email: email,
-            roles: ["user"]
-        })
-            .then(response => {
-                if (response.data) {
-                    setFormMessage(response.data.message || '');
-                    setFormMessageType('success')
-                }
-            })
-            .catch(error => {
-                if (error.response) {
-                    setFormMessage(error.response.data.message || error.message);
-                    setFormMessageType('error');
-                }
-            });
+        try {
+            const response = await register(username, email, password);
+            setVerificationInfo(response);
+            setFormMessage(response.message || '');
+            setFormMessageType('success');
+        } catch (error) {
+            setVerificationInfo(null);
+            setFormMessage(getErrorMessage(error));
+            setFormMessageType('error');
+        }
     }
 
     function isValidEmail(email: string): boolean {
-        const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/;
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
     }
 
@@ -82,7 +79,8 @@ function SignUpForm() {
                                             value={username}
                                             onChange={handleUsernameChange}
                                             placeholder={''}
-                                            autoComplete={true}
+                                            autoComplete="username"
+                                            name="username"
                             />
 
                             <FormFieldInput label={'Enter Email'}
@@ -90,7 +88,8 @@ function SignUpForm() {
                                             value={email}
                                             onChange={handleEmailChange}
                                             placeholder={''}
-                                            autoComplete={true}
+                                            autoComplete="email"
+                                            name="email"
                             />
 
                             <PasswordField
@@ -98,12 +97,21 @@ function SignUpForm() {
                                 value={password}
                                 onChange={handlePasswordChange}
                                 placeholder={''}
+                                autoComplete="new-password"
+                                name="password"
                             />
 
                             {formMessage && (
                                 <Alert severity={formMessageType === 'success' ? 'success' : 'error'}
                                        sx={{marginTop: '1em', marginBottom: '1em'}}>
-                                    {formMessage}
+                                    <Stack spacing={1}>
+                                        <span>{formMessage}</span>
+                                        {verificationInfo?.verificationUrl && (
+                                            <MuiLink href={verificationInfo.verificationUrl} underline="hover">
+                                                Verify account now
+                                            </MuiLink>
+                                        )}
+                                    </Stack>
                                 </Alert>
                             )
                             }

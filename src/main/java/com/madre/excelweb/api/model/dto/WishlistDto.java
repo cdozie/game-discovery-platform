@@ -11,4 +11,5 @@ public class WishlistDto {
     private GameDto gameinfo;
     private Double rating;
     private ListGameStatus status;
+    private String selectedPlatform;
 }

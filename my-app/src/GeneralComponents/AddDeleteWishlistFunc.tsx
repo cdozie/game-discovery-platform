@@ -1,6 +1,6 @@
-import axios from "axios/index";
 import {Severity} from "./PopupMessage";
 import React from "react";
+import apiClient, {getErrorMessage} from "../api/client";
 
 
 export type wishlistAction = 'REMOVE' | 'ADD';
@@ -16,7 +16,7 @@ export const toggleWishlist = (wishlistAction: wishlistAction, gameId: string, s
 
 
     const action = wishlistAction === 'ADD' ? 'addToList' : 'removeFromList';
-    axios.post(`/api/auth/${action}`, {gameId})
+    apiClient.post(`/auth/${action}`, {gameId})
         .then(response => {
             const message = action === 'addToList' ? 'Game added to wishlist' : 'Game removed from wishlist';
             setMessageState({
@@ -27,7 +27,7 @@ export const toggleWishlist = (wishlistAction: wishlistAction, gameId: string, s
         })
         .catch(error => {
             setMessageState({
-                message: error?.response?.data?.message || error.message,
+                message: getErrorMessage(error),
                 severity: Severity.ERROR
             });
         });

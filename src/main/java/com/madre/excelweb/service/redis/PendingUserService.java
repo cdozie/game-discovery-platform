@@ -2,45 +2,61 @@ package com.madre.excelweb.service.redis;
 
 import com.madre.excelweb.jpa.entity.AppUser;
 import com.madre.excelweb.jpa.entity.EmailVerificationToken;
+import com.madre.excelweb.jpa.entity.PendingUserEntity;
+import com.madre.excelweb.jpa.repositories.PendingUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @RequiredArgsConstructor
 public class PendingUserService {
-    private static final String PENDING_USER_KEY_TEMPLATE = "pending-user:%s";
-    private final RedisTemplate<String, AppUser> redisTemplate;
+    private final PendingUserRepository pendingUserRepository;
 
+    @Transactional
     public void savePendingUser(AppUser appUser) {
-        try {
-            log.info("Saving pending user: {}", appUser);
-            redisTemplate.opsForValue().set(PENDING_USER_KEY_TEMPLATE.formatted(appUser.getEmail()), appUser, EmailVerificationToken.EXPIRATION, TimeUnit.MINUTES);
-            log.info("Pending user successfully saved: {}", appUser);
+        log.info("Saving pending user: {}", appUser.getUsername());
+        pendingUserRepository.findByEmail(appUser.getEmail())
+                .ifPresent(existing -> pendingUserRepository.delete(existing));
 
-        } catch (Exception e) {
-            log.error("Error saving pending user: {}", appUser.getUsername(), e);
-            throw e;
-        }
-
+        final PendingUserEntity entity = PendingUserEntity.builder()
+                .email(appUser.getEmail())
+                .username(appUser.getUsername())
+                .passwordHash(appUser.getPassword())
+                .expiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusMinutes(EmailVerificationToken.EXPIRATION))
+                .build();
+        pendingUserRepository.save(entity);
+        log.info("Pending user successfully saved: {}", appUser.getUsername());
     }
 
     public Optional<AppUser> getPendingUser(String email) {
-        return Optional.ofNullable(redisTemplate.opsForValue().get(PENDING_USER_KEY_TEMPLATE.formatted(email)));
+        return pendingUserRepository.findByEmail(email)
+                .filter(e -> e.getExpiresAt().isAfter(OffsetDateTime.now(ZoneOffset.UTC)))
+                .map(e -> AppUser.builder()
+                        .username(e.getUsername())
+                        .email(e.getEmail())
+                        .password(e.getPasswordHash())
+                        .build());
     }
 
+    @Transactional
     public void removePendingUser(String email) {
-        try {
-            log.info("Removing pending user: {}", email);
-            redisTemplate.delete(PENDING_USER_KEY_TEMPLATE.formatted(email));
-            log.info("Pending user successfully removed: {}", email);
-        } catch (Exception e) {
-            log.error("Error removing pending user with email: {}", email, e);
-            throw e;
+        log.info("Removing pending user: {}", email);
+        pendingUserRepository.deleteByEmail(email);
+        log.info("Pending user successfully removed: {}", email);
+    }
+
+    @Transactional
+    @Scheduled(cron = "0 0 * * * *")
+    public void cleanupExpired() {
+        final int deleted = pendingUserRepository.deleteExpired(OffsetDateTime.now(ZoneOffset.UTC));
+        if (deleted > 0) {
+            log.info("Cleaned up {} expired pending users", deleted);
         }
     }
-
 }

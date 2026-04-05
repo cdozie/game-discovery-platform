@@ -13,15 +13,51 @@ import java.util.Optional;
 @Repository
 @Table(name = "users")
 public interface UserRepository extends JpaRepository<AppUser, Long> {
-    @Query(value = "SELECT * FROM users ", nativeQuery = true)
+    @Query("""
+            select distinct user
+            from AppUser user
+            left join fetch user.roles
+            order by user.createdAt desc
+            """)
     List<AppUser> listUsers();
 
-    @Query(value = "SELECT * FROM users WHERE username = :username LIMIT 1", nativeQuery = true)
+    @Query("""
+            select distinct user
+            from AppUser user
+            left join fetch user.roles
+            where user.username = :username
+            """)
     Optional<AppUser> getUserByUsername(@Param("username") String username);
 
-    @Query(value = "SELECT * FROM users WHERE email = :email LIMIT 1", nativeQuery = true)
+    @Query("""
+            select distinct user
+            from AppUser user
+            left join fetch user.roles
+            where user.email = :email
+            """)
     Optional<AppUser> getUserByEmail(@Param("email") String email);
 
-    @Query(value = "SELECT * FROM users WHERE id = :id LIMIT 1", nativeQuery = true)
+    @Query("""
+            select distinct user
+            from AppUser user
+            left join fetch user.roles
+            where user.publicId = :publicId
+            """)
+    Optional<AppUser> getUserByPublicId(@Param("publicId") String publicId);
+
+    @Query("""
+            select distinct user
+            from AppUser user
+            left join fetch user.roles
+            where user.id = :id
+            """)
     Optional<AppUser> getUserById(@Param("id") Long id);
+
+    @Query("""
+            select distinct user
+            from AppUser user
+            left join fetch user.roles
+            order by user.createdAt desc
+            """)
+    List<AppUser> findAllByOrderByCreatedAtDesc();
 }

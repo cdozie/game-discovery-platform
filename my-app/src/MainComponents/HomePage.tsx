@@ -1,297 +1,328 @@
-import React, {useEffect, useRef, useState} from 'react';
-import '../App.scss';
-import axios from "axios";
+import React, {useCallback, useEffect, useState} from 'react';
 import {
     Box,
-    Card,
-    CardContent,
-    CardMedia,
+    Button,
+    Chip,
     CircularProgress,
     Container,
     Grid,
-    IconButton,
-    Link as MuiLink,
-    Tooltip,
+    Paper,
+    Stack,
     Typography
 } from "@mui/material";
-
-import AddIcon from '@mui/icons-material/Add';
+import SyncIcon from '@mui/icons-material/Sync';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import PopupMessage, {Severity} from "../GeneralComponents/PopupMessage";
-import {GameData, GameDataWithInteractions} from "../GeneralComponents/types/GameData";
+import {CatalogDashboard, CatalogSyncRun} from "../GeneralComponents/types/CatalogDashboard";
+import {GameData} from "../GeneralComponents/types/GameData";
 import {useLoading} from "../GeneralComponents/LoadingContext";
 import ListModificationModal from "./ListModificationModal";
-import EditIcon from '@mui/icons-material/Edit';
-import EventNoteIcon from '@mui/icons-material/EventNote';
-import DeleteIcon from "@mui/icons-material/Delete";
+import GameShowcaseCard from "./GameShowcaseCard";
+import {GameStatusTypes} from "../GeneralComponents/types/GameStatusTypes";
+import {formatDisplayDate} from "../GeneralComponents/utils/dates";
+import {getErrorMessage} from "../api/client";
+import {getCatalogDashboard, getLatestCatalogSync, removeWishlistEntry, triggerCatalogSync, upsertWishlist} from "../api/games";
+import {requiresPlatformSelection} from "../GeneralComponents/utils/platforms";
 
 function HomePage() {
+    const [dashboard, setDashboard] = useState<CatalogDashboard | null>(null);
+    const [message, setMessage] = useState('');
+    const [severity, setSeverity] = useState(Severity.SUCCESS);
+    const [modalGameId, setModalGameId] = useState<string | null>(null);
+    const [pollSyncStatus, setPollSyncStatus] = useState(false);
 
-    const [games, setGames] = useState<GameDataWithInteractions[]>([]);
-    const [alertMessage, setAlertMessage] = useState('');
-    const [severity, setSeverity] = React.useState(Severity.SUCCESS);
-    const [page, setPage] = useState(1);
-    const lastGameInfo = useRef({lastId: null, lastInteractions: null});
-
-    const observerRef = useRef(null);
-    const lastObservedRef = useRef(null);
-
-    const [GameEntryModalOpen, setGameEntryModalOpen] = React.useState(false);
-    const [modalGameId, setModalGameId] = React.useState('' as any);
-
-
-    const loadingContext = useLoading()
+    const loadingContext = useLoading();
 
     if (!loadingContext) {
         throw new Error("useLoading must be used within a LoadingProvider");
     }
 
-    const updateGameInWishlist = (gameId: string, inWishlist: boolean) => {
-        const updatedGames = games.map((game: GameDataWithInteractions) => {
-            if (game.id === gameId) {
-                game.inWishlist = inWishlist;
-            }
-            return game;
-        });
-        setGames(updatedGames);
-    }
-
-
     const {loading, setLoading} = loadingContext;
 
-
-    const gameLimit: number = 40;
+    const loadDashboard = useCallback(async () => {
+        try {
+            setLoading(true);
+            const nextDashboard = await getCatalogDashboard();
+            setDashboard(nextDashboard);
+        } catch (error) {
+            setMessage(getErrorMessage(error));
+            setSeverity(Severity.ERROR);
+        } finally {
+            setLoading(false);
+        }
+    }, [setLoading]);
 
     useEffect(() => {
-        const observer = new IntersectionObserver(
-            (entries) => {
-                console.log("Observer callback called");
-
-                if (entries[0].isIntersecting) {
-                    setPage((prevPage) => prevPage + 1);
-                }
-            },
-            {threshold: .5}
-        );
-
-        if (observerRef.current) {
-            if (lastObservedRef.current) {
-                observer.unobserve(lastObservedRef.current);
-            }
-            observer.observe(observerRef.current);
-        }
-
-        lastObservedRef.current = observerRef.current;
-
-        return () => {
-            if (observerRef.current) {
-                observer.unobserve(observerRef.current);
-            }
-        };
-    }, [games]);
+        loadDashboard();
+    }, [loadDashboard]);
 
     useEffect(() => {
-        const {lastId, lastInteractions} = lastGameInfo.current;
-        console.log(lastId, lastInteractions)
-        let endpoint = `/api/auth/games/most-interacted-with?limit=${gameLimit}`;
-
-        if (lastId && lastInteractions) {
-            endpoint += `&lastId=${lastId}&lastInteractions=${lastInteractions}`;
+        if (!pollSyncStatus && !dashboard?.syncInProgress) {
+            return;
         }
 
-        setLoading(true);
-        axios.get(endpoint)
-            .then(response => {
-                const newGames = response?.data || [];
+        const intervalId = window.setInterval(async () => {
+            try {
+                const latestRun = await getLatestCatalogSync();
+                setDashboard(previous => previous ? {
+                    ...previous,
+                    syncInProgress: latestRun?.status === 'RUNNING',
+                    lastSync: latestRun
+                } : previous);
 
-                setGames(prevGames => [...prevGames, ...newGames]);
-
-                // Update the reference values with the last game's info
-                if (newGames.length > 0) {
-                    const lastGame = newGames[newGames.length - 1];
-                    lastGameInfo.current = {lastId: lastGame.id, lastInteractions: lastGame.interactions};
+                if (latestRun?.status && latestRun.status !== 'RUNNING') {
+                    setPollSyncStatus(false);
+                    await loadDashboard();
                 }
+            } catch (error) {
+                setPollSyncStatus(false);
+                setMessage(getErrorMessage(error));
+                setSeverity(Severity.ERROR);
+            }
+        }, 4000);
 
-                setLoading(false);
-            })
-            .catch(error => {
-                setAlertMessage(error?.response?.data?.message || error.message);
-            });
-    }, [page]);
+        return () => window.clearInterval(intervalId);
+    }, [pollSyncStatus, dashboard?.syncInProgress, loadDashboard]);
 
-    const handleOpenGameEntryModal = (gameId: string) => {
+    async function handleTriggerSync() {
+        try {
+            const syncRun = await triggerCatalogSync();
+            setDashboard(previous => previous ? {
+                ...previous,
+                syncInProgress: true,
+                lastSync: syncRun
+            } : previous);
+            setPollSyncStatus(true);
+            setMessage('Catalog sync started. New games will flow into Postgres as batches finish.');
+            setSeverity(Severity.INFO);
+        } catch (error) {
+            setMessage(getErrorMessage(error));
+            setSeverity(Severity.ERROR);
+        }
+    }
+
+    async function quickPlanToPlay(game: GameData) {
+        if (requiresPlatformSelection(game.platforms)) {
+            setModalGameId(game.id);
+            setMessage('Choose a platform for this game before adding it to your list.');
+            setSeverity(Severity.INFO);
+            return;
+        }
+
+        try {
+            await upsertWishlist(game.id, GameStatusTypes.PLAN_TO_PLAY, null);
+            updateGameWishlistFlag(game.id, true);
+            setMessage(`${game.name} added to your list.`);
+            setSeverity(Severity.SUCCESS);
+        } catch (error) {
+            setMessage(getErrorMessage(error));
+            setSeverity(Severity.ERROR);
+        }
+    }
+
+    async function removeFromWishlist(game: GameData) {
+        try {
+            await removeWishlistEntry(game.id);
+            updateGameWishlistFlag(game.id, false);
+            setMessage(`${game.name} removed from your list.`);
+            setSeverity(Severity.SUCCESS);
+        } catch (error) {
+            setMessage(getErrorMessage(error));
+            setSeverity(Severity.ERROR);
+        }
+    }
+
+    function updateGameWishlistFlag(gameId: string, inWishlist: boolean) {
+        setDashboard(previous => {
+            if (!previous) {
+                return previous;
+            }
+
+            return {
+                ...previous,
+                latestGames: previous.latestGames.map(game => game.id === gameId ? {...game, inWishlist} : game),
+                popularGames: previous.popularGames.map(game => game.id === gameId ? {...game, inWishlist} : game)
+            };
+        });
+    }
+
+    function openWishlistModal(gameId: string) {
         setModalGameId(gameId);
-        setGameEntryModalOpen(true);
-    }
-    const handleCloseGameEntryModal = () => {
-        setModalGameId('');
-        setGameEntryModalOpen(false);
     }
 
-
-    const upsertWishlist = (game: GameData) => {
-        axios.post("/api/auth/wishlist", {
-            gameId: game.id,
-            status: "Plan to Play",
-            rating: null
-        })
-            .then(response => {
-                setAlertMessage(response?.data?.message || 'Game added to wishlist');
-                setSeverity(Severity.SUCCESS);
-
-                // Update the local state
-                game.inWishlist = true;
-                setGames(prevGames => [...prevGames]);
-            }).catch(error => {
-            setAlertMessage(error?.response?.data?.message || error.message);
-            setSeverity(Severity.ERROR);
-        })
+    function closeWishlistModal() {
+        setModalGameId(null);
     }
 
-    const removeFromWishlist = (game: GameData) => {
-        axios.delete(`/api/auth/wishlist/${game.id}`)
-            .then(response => {
-                setAlertMessage(response?.data?.message || 'Game removed from wishlist');
-                setSeverity(Severity.SUCCESS);
+    function formatSyncSummary(syncRun: CatalogSyncRun | null | undefined) {
+        if (!syncRun) {
+            return "No sync has been recorded yet.";
+        }
 
-                // Update the local state
-                game.inWishlist = false;
-                setGames(prevGames => [...prevGames]);
-            }).catch(error => {
-            setAlertMessage(error?.response?.data?.message || error.message);
-            setSeverity(Severity.ERROR);
-        })
+        const startedAt = syncRun.startedAt ? new Date(syncRun.startedAt).toLocaleString() : "unknown";
+        return `${syncRun.catalogSource} • ${syncRun.status} • ${syncRun.processedCount} processed • ${startedAt}`;
     }
 
-    const toggleWishlist = (game: GameData) => {
-        game.inWishlist ? removeFromWishlist(game) : upsertWishlist(game);
-
-    };
-
-
-    // Icon Component
-    const WishlistIcon = ({gameId, inWishlist}: { gameId: string, inWishlist: boolean }) => {
-        return (
-            <Tooltip title={inWishlist ? "Edit Wishlist Entry" : "Add to Wishlist"} placement="left">
-                <IconButton
-                    color="primary"
-                    onClick={() => handleOpenGameEntryModal(gameId)}
-                    sx={{
-                        color: "white",
-                    }}
-                    className="showOnHover"
-                >
-                    {inWishlist ? <EditIcon fontSize="medium"/> : <AddIcon fontSize="medium"/>}
-                </IconButton>
-            </Tooltip>
-        );
-    };
-
-    const QuickActionIcon = ({gameData, inWishlist}: { gameData: GameData, inWishlist: boolean }) => {
-        return (
-            <Tooltip title={inWishlist ? "Set to Planning" : "Add to Planning"} placement="left">
-                <IconButton
-                    color="primary"
-                    onClick={() => upsertWishlist(gameData)}
-                    sx={{
-                        color: "white",
-                    }
-                    }
-                    className="quickActionIcon"
-                >
-                    <EventNoteIcon fontSize="medium"/>
-                </IconButton>
-            </Tooltip>
-        )
+    function formatDate(dateValue?: string) {
+        return formatDisplayDate(dateValue, undefined, "Unknown");
     }
-    const DeleteIconButton = ({gameData}: { gameData: GameData }) => {
-        return (
-            <Tooltip title="Remove from Wishlist" placement="left">
-                <IconButton
-                    color="primary"
-                    onClick={() => removeFromWishlist(gameData)}
-                    sx={{
-                        color: "white",
-                    }}
-                    className="quickActionIcon"
-                >
-                    <DeleteIcon fontSize="medium"/>
-                </IconButton>
-            </Tooltip>
-        );
-    }
+
+    const stats = dashboard ? [
+        {label: 'Games in catalog', value: dashboard.totalGames.toLocaleString()},
+        {label: 'Users', value: dashboard.totalUsers.toLocaleString()},
+        {label: 'Wishlist entries', value: dashboard.totalWishlistEntries.toLocaleString()}
+    ] : [];
 
     return (
-        <div>
-            <Container>
-                <Typography
-                    variant="h3"
-                    component="div"
-                    gutterBottom
-                    style={{textAlign: "center"}}
-                    fontWeight="bolder"
+        <Box sx={{width: '100%', pt: {xs: 10, md: 12}, pb: 6}}>
+            <PopupMessage message={message} severity={severity}/>
+            <Container maxWidth="xl">
+                <Paper
+                    sx={{
+                        p: {xs: 3, md: 4},
+                        borderRadius: '2rem',
+                        mb: 4,
+                        color: 'white',
+                        background: 'linear-gradient(135deg, rgba(37,14,74,0.92), rgba(124,66,196,0.86))',
+                        boxShadow: '0 30px 80px rgba(26, 7, 57, 0.34)'
+                    }}
                 >
-                    Most Popular Games
-                </Typography>
-                <PopupMessage message={alertMessage} severity={severity}/>
-                <Grid container spacing={3} sx={{height: '78vh'}}>
-                    {games.map((game: GameData, index) => (
-                        <Grid item xs={12} sm={6} md={4} lg={3} key={game.id}
-                              ref={index === games.length - 1 ? observerRef : null}
+                    <Stack direction={{xs: 'column', lg: 'row'}} spacing={3} justifyContent="space-between">
+                        <Box maxWidth={760}>
+                            <Typography variant="overline" sx={{letterSpacing: '0.16em', opacity: 0.85}}>
+                                Catalog Control Room
+                            </Typography>
+                            <Typography variant="h3" fontWeight={900} sx={{mb: 1}}>
+                                Keep the database alive, current, and actually useful.
+                            </Typography>
+                            <Typography sx={{opacity: 0.88, maxWidth: 640}}>
+                                The backend now tracks sync runs, supports manual PSN imports, and bootstraps the catalog on an empty database.
+                                This page shows catalog health, the latest imported games, and the titles people interact with most.
+                            </Typography>
+                        </Box>
+
+                        <Paper
+                            sx={{
+                                p: 3,
+                                minWidth: {xs: '100%', lg: 360},
+                                borderRadius: '1.5rem',
+                                background: 'rgba(255,255,255,0.12)',
+                                color: 'white'
+                            }}
                         >
-
-                            <Card className="gameCards"
-                                  sx={{
-                                      borderRadius: '1em',
-                                      backgroundColor: 'rgba(255, 255, 255, 0.6)', // white with 60% opacity
-                                      position: 'relative', // Add this line
-                                      // '&:hover .showOnHover': { // New hover effect for the CardActions
-                                      //     opacity: 1,
-                                      //     backgroundColor: "rgba(0,0,0,.7)",
-                                      // },
-                                      // '&:hover': {
-                                      //     boxShadow: '0px 0px 15px 5px rgba(255, 255, 255, 0.6)',  // Adjust as needed
-                                      // }
-                                  }}>
-                                <Box className="iconsContainer">
-                                    <WishlistIcon gameId={game.id} inWishlist={game.inWishlist}/>
-                                    <QuickActionIcon gameData={game} inWishlist={game.inWishlist}/>
-                                    {game.inWishlist && <DeleteIconButton gameData={game}/>}
-                                </Box>
-
-                                <MuiLink href={"/api/games/" + game.id} color="inherit" underline="hover">
-                                    <CardMedia
-                                        component="img"
-                                        image={game.imageUrl}
-                                        alt={game.name}
-                                        style={{
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            flexDirection: 'column',
-                                            // boxShadow: '0 0 10px 10px rgba(255, 255, 255, 0.68)'
-                                        }}
+                            <Stack spacing={2}>
+                                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                    <Typography variant="h6" fontWeight={800}>PSN Sync</Typography>
+                                    <Chip
+                                        label={dashboard?.syncInProgress ? 'Running' : dashboard?.lastSync?.status || 'Idle'}
+                                        color={dashboard?.syncInProgress ? 'warning' : 'success'}
+                                        size="small"
                                     />
-                                </MuiLink>
-                                <CardContent>
-                                    <Typography gutterBottom variant="body2" component="div" fontWeight="bolder">
-                                        {game.name}
+                                </Stack>
+                                <Typography variant="body2" sx={{opacity: 0.9}}>
+                                    {formatSyncSummary(dashboard?.lastSync)}
+                                </Typography>
+                                {dashboard?.lastSync?.message && (
+                                    <Typography variant="body2" sx={{opacity: 0.75}}>
+                                        {dashboard.lastSync.message}
                                     </Typography>
+                                )}
+                                <Button
+                                    onClick={handleTriggerSync}
+                                    disabled={dashboard?.syncInProgress}
+                                    variant="contained"
+                                    color="secondary"
+                                    startIcon={dashboard?.syncInProgress ? <CircularProgress size={18} color="inherit"/> : <SyncIcon/>}
+                                >
+                                    {dashboard?.syncInProgress ? 'Syncing catalog' : 'Sync catalog now'}
+                                </Button>
+                            </Stack>
+                        </Paper>
+                    </Stack>
+                </Paper>
 
-                                </CardContent>
-
-                            </Card>
+                <Grid container spacing={3} sx={{mb: 4}}>
+                    {stats.map(stat => (
+                        <Grid item xs={12} md={4} key={stat.label}>
+                            <Paper
+                                sx={{
+                                    p: 3,
+                                    borderRadius: '1.5rem',
+                                    background: 'rgba(255,255,255,0.82)',
+                                    boxShadow: '0 16px 40px rgba(33, 11, 68, 0.14)'
+                                }}
+                            >
+                                <Typography variant="body2" color="text.secondary">{stat.label}</Typography>
+                                <Typography variant="h4" fontWeight={900}>{stat.value}</Typography>
+                            </Paper>
                         </Grid>
                     ))}
-                    {loading && <CircularProgress/>}
-
-
-                    {modalGameId &&
-                        <ListModificationModal open={GameEntryModalOpen} onClose={handleCloseGameEntryModal}
-                                               gameId={modalGameId} updateGameInWishlist={updateGameInWishlist}/>
-                    }
-
                 </Grid>
+
+                {loading && !dashboard && (
+                    <Box sx={{display: 'flex', justifyContent: 'center', py: 8}}>
+                        <CircularProgress/>
+                    </Box>
+                )}
+
+                {dashboard && (
+                    <Stack spacing={5}>
+                        <Box>
+                            <Stack direction="row" alignItems="center" spacing={1} sx={{mb: 2}}>
+                                <AutoAwesomeIcon color="secondary"/>
+                                <Typography variant="h4" fontWeight={900}>Latest arrivals</Typography>
+                            </Stack>
+                            <Grid container spacing={3}>
+                                {dashboard.latestGames.map(game => (
+                                    <Grid item xs={12} md={6} lg={3} key={game.id}>
+                                        <GameShowcaseCard
+                                            game={game}
+                                            badgeLabel={formatDate(game.created)}
+                                            formatDate={formatDate}
+                                            onCustomize={openWishlistModal}
+                                            onQuickToggle={(selectedGame) => selectedGame.inWishlist ? removeFromWishlist(selectedGame) : quickPlanToPlay(selectedGame)}
+                                        />
+                                    </Grid>
+                                ))}
+                            </Grid>
+                        </Box>
+
+                        <Box>
+                            <Stack direction="row" alignItems="center" spacing={1} sx={{mb: 2}}>
+                                <SyncIcon color="secondary"/>
+                                <Typography variant="h4" fontWeight={900}>Most active titles</Typography>
+                            </Stack>
+                            <Grid container spacing={3}>
+                                {dashboard.popularGames.map(game => (
+                                    <Grid item xs={12} md={6} lg={3} key={game.id}>
+                                        <GameShowcaseCard
+                                            game={game}
+                                            badgeLabel={`${game.interactions || '0'} interactions`}
+                                            formatDate={formatDate}
+                                            onCustomize={openWishlistModal}
+                                            onQuickToggle={(selectedGame) => selectedGame.inWishlist ? removeFromWishlist(selectedGame) : quickPlanToPlay(selectedGame)}
+                                        />
+                                    </Grid>
+                                ))}
+                            </Grid>
+                        </Box>
+                    </Stack>
+                )}
+
+                {modalGameId && (
+                    <ListModificationModal
+                        open={!!modalGameId}
+                        onClose={closeWishlistModal}
+                        gameId={modalGameId}
+                        updateGameInWishlist={updateGameWishlistFlag}
+                        onActionComplete={(nextMessage, nextSeverity) => {
+                            setMessage(nextMessage);
+                            setSeverity(nextSeverity);
+                        }}
+                    />
+                )}
             </Container>
-        </div>
+        </Box>
     );
 }
 

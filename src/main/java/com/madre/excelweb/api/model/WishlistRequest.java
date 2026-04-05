@@ -4,7 +4,8 @@ import lombok.Data;
 
 @Data
 public class WishlistRequest {
-    private Long gameId;
+    private String gameId;
     private Double rating;
     private String status;
+    private String selectedPlatform;
 }

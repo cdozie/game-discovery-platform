@@ -4,6 +4,7 @@ import {GameStatusTypes} from "./GameStatusTypes";
 export interface WishlistType {
     id: string | null;
     gameinfo: GameData
-    rating: number | string;
+    rating: number | string | null;
     status: GameStatusTypes;
+    selectedPlatform?: string | null;
 }
