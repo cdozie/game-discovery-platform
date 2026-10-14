@@ -38,3 +38,12 @@ out/
 
 ### Environment ###
 .env
+.codex
+.gradle-local/
+.local-data/
+var/
+
+### Dependencies and crash logs ###
+node_modules/
+hs_err_pid*.log
+replay_pid*.log
